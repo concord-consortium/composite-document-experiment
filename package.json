@@ -1,10 +1,10 @@
 {
-  "name": "starter-projects",
+  "name": "composite-document-experiment",
   "version": "0.0.1",
-  "description": "Concord Consortium starter projects",
+  "description": "Concord Consortium Composite Document Experiment",
   "main": "index.js",
   "jest": {
-    "testURL": "https://starter-projects.unexisting.url.com",
+    "testURL": "https://composite-document-experiment.unexisting.url.com",
     "transform": {
       "^.+\\.tsx?$": "ts-jest"
     },
@@ -55,14 +55,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/concord-consortium/starter-projects.git"
+    "url": "git+https://github.com/concord-consortium/composite-document-experiment.git"
   },
   "author": "Concord Consortium",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/concord-consortium/starter-projects/issues"
+    "url": "https://github.com/concord-consortium/composite-document-experiment/issues"
   },
-  "homepage": "https://github.com/concord-consortium/starter-projects#readme",
+  "homepage": "https://github.com/concord-consortium/composite-document-experiment#readme",
   "nyc": {
     "extends": "@istanbuljs/nyc-config-typescript",
     "all": true,

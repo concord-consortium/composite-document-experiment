@@ -1,6 +1,6 @@
-# Starter Projects Localization
+# Composite Document Experiment Localization
 
-The modules within `utils/translation` can be used to add text localization to a starter-projects based application.
+The modules within `utils/translation` can be used to add text localization to a composite-document-experiment based application.
 
 ### How to use
 
