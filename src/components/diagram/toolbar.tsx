@@ -1,7 +1,7 @@
 
 import { Instance } from "mobx-state-tree";
 import React from "react";
-import { DQRoot } from "../models/dq-root";
+import { DQRoot } from "../../models/diagram/dq-root";
 
 interface IProps {
     dqRoot: Instance<typeof DQRoot>;

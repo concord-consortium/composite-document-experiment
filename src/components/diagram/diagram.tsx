@@ -3,8 +3,8 @@ import { getSnapshot, Instance } from "mobx-state-tree";
 import React, { useRef, useState } from "react";
 import ReactFlow, {  Elements, 
   Controls, ReactFlowProvider } from "react-flow-renderer/nocss";
-import { DQRoot } from "../models/dq-root";
-import { DQNode } from "../models/dq-node";
+import { DQRoot } from "../../models/diagram/dq-root";
+import { DQNode } from "../../models/diagram/dq-node";
 import { NodeForm } from "./node-form";
 import { QuantityNode } from "./quantity-node";
 import { ToolBar } from "./toolbar";

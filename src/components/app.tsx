@@ -1,5 +1,5 @@
 import React from "react";
-import { Diagram } from "./diagram";
+import { Diagram } from "./diagram/diagram";
 
 import "./app.scss";
 
