@@ -19,6 +19,7 @@ import "react-flow-renderer/dist/theme-default.css";
 // The order matters the diagram css overrides some styles
 // from the react-flow css.
 import "./diagram.scss";
+import { Item, Items } from "../../models/items/items";
 
 const nodeTypes = {
   quantityNode: QuantityNode,
@@ -26,9 +27,14 @@ const nodeTypes = {
 
 interface IProps {
   dqRoot: Instance<typeof DQRoot>;
+  items: Instance<typeof Items>;
 }
 
-export const _Diagram: React.FC<IProps> = ({dqRoot}) => {
+// FIXME: instead of directly passing in the items here,
+// the dqRoot should have a way to reference the items shared data model
+// this way multiple items shared data models can be supported in the same
+// document
+export const _Diagram: React.FC<IProps> = ({dqRoot, items}) => {
   const reactFlowWrapper = useRef<any>(null);
   const [selectedNode, setSelectedNode] = useState<Instance<typeof DQNode> | undefined>();
 
@@ -72,9 +78,17 @@ export const _Diagram: React.FC<IProps> = ({dqRoot}) => {
       y: event.clientY - reactFlowBounds.top,
     });
 
+    const item = Item.create({
+      // FIXME: this approach of adding an item should be streamlined
+      // it seems best if the new item id was calculated by the Items model itself.
+      id: items.getNextId().toString(),
+      name: "new"
+    });
+    items.addItem(item);
+
     const dqNode = DQNode.create({
       id: dqRoot.getNextId().toString(),
-      name: "new",
+      item: item.id,
       x: position.x,
       y: position.y   
     });

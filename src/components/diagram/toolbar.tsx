@@ -13,7 +13,8 @@ export const ToolBar: React.FC<IProps> = ({dqRoot}) => {
         event.dataTransfer.effectAllowed = "move";
     };
     
-    // FIXME: this is currently specific to the diagram instead of the whole document
+    // FIXME: this is currently broken it is just generating a URL for the diagram
+    // instead of one for the whole document.
     const copyDiagramURL = () => {
         const exportedDiagram = dqRoot.getDiagramState();
         const url = new URL(window.location.href);

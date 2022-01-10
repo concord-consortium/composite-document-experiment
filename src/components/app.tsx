@@ -3,7 +3,7 @@ import { Diagram } from "./diagram/diagram";
 
 import "./app.scss";
 import { getSnapshot } from "mobx-state-tree";
-import { DQRoot } from "../models/diagram/dq-root";
+import { CDocument } from "../models/c-document";
 
 
 
@@ -14,25 +14,43 @@ const loadInitialState = () => {
   
   // Default diagram
   let document = {
-    nodes: {
+    items: {
+      items: {
+        "1": {
+          id: "1",
+          name: "A"
+        },
+        "2": {
+          id: "2",
+          name: "B"
+        },
+        "3": {
+          id: "3",
+          name: "C"
+        }  
+      }
+    },
+    diagram: {
+      nodes: {
         "1": {
             id: "1",
-            name: "A",
+            item: "1",
             x: 100,
             y: 100       
         },
         "2": {
             id: "2",
-            name: "B",
+            item: "2",
             x: 100,
             y: 200
         },
         "3": {
             id: "3",
-            name: "C",
+            item: "3",
             x: 250,
             y: 150
         }
+      }
     }
   };
 
@@ -44,10 +62,10 @@ const loadInitialState = () => {
   return document;
 };
 
-const dqRoot = DQRoot.create(loadInitialState());
+const cDocument = CDocument.create(loadInitialState());
 
 // For debugging
-(window as any).dqRoot = dqRoot;
+(window as any).cDocument = cDocument;
 (window as any).getSnapshot = getSnapshot;
 
 
@@ -77,7 +95,7 @@ const dqRoot = DQRoot.create(loadInitialState());
 export const App = () => {
   return (
     <div className="app">
-      <Diagram dqRoot={dqRoot}/>
+      <Diagram dqRoot={cDocument.diagram} items={cDocument.items}/>
     </div>
   );
 };

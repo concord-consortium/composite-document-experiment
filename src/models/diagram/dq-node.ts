@@ -1,9 +1,10 @@
 import { types } from "mobx-state-tree";
 import { Elements } from "react-flow-renderer/nocss";
+import { Item } from "../items/items";
 
 export const DQNode = types.model("BasicNode", {
     id: types.identifier,
-    name: types.maybe(types.string),
+    item: types.reference(Item),
     
     // The x and y values are required when initializing the react flow
     // component. However the react flow component ignores them after this.
@@ -25,9 +26,12 @@ export const DQNode = types.model("BasicNode", {
 
             return elements;
         },
+        get name() {
+            return self.item.name;
+        }
     }))
     .actions(self => ({
         setName(newName?: string) {
-            self.name = newName;
+            self.item.setName(newName);
         },
     }));
