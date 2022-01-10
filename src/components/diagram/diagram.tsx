@@ -1,5 +1,5 @@
 import { observer } from "mobx-react-lite";
-import { getSnapshot, Instance } from "mobx-state-tree";
+import { Instance } from "mobx-state-tree";
 import React, { useRef, useState } from "react";
 import ReactFlow, {  Elements, 
   Controls, ReactFlowProvider } from "react-flow-renderer/nocss";
@@ -20,63 +20,15 @@ import "react-flow-renderer/dist/theme-default.css";
 // from the react-flow css.
 import "./diagram.scss";
 
-const url = new URL(window.location.href);
-
-let nextId = 0;
-const loadInitialState = () => {
-  const urlDiagram = url.searchParams.get("diagram");
-  
-  // Default diagram
-  let diagram = {
-    nodes: {
-        "1": {
-            id: "1",
-            name: "A",
-            x: 100,
-            y: 100       
-        },
-        "2": {
-            id: "2",
-            name: "B",
-            x: 100,
-            y: 200
-        },
-        "3": {
-            id: "3",
-            name: "C",
-            x: 250,
-            y: 150
-        }
-    }
-  };
-
-  // Override default diagram with URL param
-  if (urlDiagram) {
-    diagram = JSON.parse(urlDiagram);
-  }
-
-  // Figure out the nextId
-  let maxId = 0;
-  for (const idString of Object.keys(diagram.nodes)) {
-    const id = parseInt(idString, 10);
-    if (id > maxId) maxId = id;
-  }
-  nextId = maxId + 1;
-  return diagram;
-};
-
-const dqRoot = DQRoot.create(loadInitialState());
-
-// For debugging
-(window as any).dqRoot = dqRoot;
-(window as any).getSnapshot = getSnapshot;
-
-
 const nodeTypes = {
   quantityNode: QuantityNode,
 };
 
-export const _Diagram = () => {
+interface IProps {
+  dqRoot: Instance<typeof DQRoot>;
+}
+
+export const _Diagram: React.FC<IProps> = ({dqRoot}) => {
   const reactFlowWrapper = useRef<any>(null);
   const [selectedNode, setSelectedNode] = useState<Instance<typeof DQNode> | undefined>();
 
@@ -121,13 +73,12 @@ export const _Diagram = () => {
     });
 
     const dqNode = DQNode.create({
-      id: nextId.toString(),
+      id: dqRoot.getNextId().toString(),
       name: "new",
       x: position.x,
       y: position.y   
     });
     dqRoot.addNode(dqNode);
-    nextId++;
   };
 
   return (

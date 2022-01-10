@@ -2,6 +2,54 @@ import React from "react";
 import { Diagram } from "./diagram/diagram";
 
 import "./app.scss";
+import { getSnapshot } from "mobx-state-tree";
+import { DQRoot } from "../models/diagram/dq-root";
+
+
+
+const url = new URL(window.location.href);
+
+const loadInitialState = () => {
+  const urlDocument = url.searchParams.get("document");
+  
+  // Default diagram
+  let document = {
+    nodes: {
+        "1": {
+            id: "1",
+            name: "A",
+            x: 100,
+            y: 100       
+        },
+        "2": {
+            id: "2",
+            name: "B",
+            x: 100,
+            y: 200
+        },
+        "3": {
+            id: "3",
+            name: "C",
+            x: 250,
+            y: 150
+        }
+    }
+  };
+
+  // Override default diagram with URL param
+  if (urlDocument) {
+    document = JSON.parse(urlDocument);
+  }
+
+  return document;
+};
+
+const dqRoot = DQRoot.create(loadInitialState());
+
+// For debugging
+(window as any).dqRoot = dqRoot;
+(window as any).getSnapshot = getSnapshot;
+
 
 // Somewhere here I want to:
 // create 2 components:
@@ -29,7 +77,7 @@ import "./app.scss";
 export const App = () => {
   return (
     <div className="app">
-      <Diagram />
+      <Diagram dqRoot={dqRoot}/>
     </div>
   );
 };

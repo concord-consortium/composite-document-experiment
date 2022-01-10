@@ -16,7 +16,7 @@ export const DQRoot = types.model("DQRoot", {
         });
         return elements;
     },
-    // NOTE: this is not reactive, so components accessing it won't be re-rendered
+    // NOTE: these are not reactive, so components accessing them won't be re-rendered
     // automatically if the value changes
     getDiagramState() {
         const currentSnapshot = getSnapshot(self);
@@ -34,7 +34,16 @@ export const DQRoot = types.model("DQRoot", {
         }
         console.log("Exported Diagram", currentModel);
         return currentModel;
-    }  
+    },
+    
+    getNextId() {
+        let maxId = 0;
+        for (const idString of Array.from(self.nodes.keys())){
+          const id = parseInt(idString, 10);
+          if (id > maxId) maxId = id;
+        }
+        return maxId + 1;
+    }
 }))
 .actions(self => ({
     addNode(newNode: Instance<typeof DQNode>) {
