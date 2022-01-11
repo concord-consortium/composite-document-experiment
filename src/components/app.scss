@@ -18,8 +18,19 @@
   top: 0;
   left: 0;
   right: 0;
+  bottom: 50vh;
+  margin: 10px;
+  border: solid;
+}
+
+.item-list {
+  position: fixed;
+  top: 50vh;
+  left: 0;
+  right: 0;
   bottom: 0;
   margin: 10px;
+  border: solid;
 }
 
 button.action {

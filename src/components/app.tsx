@@ -4,8 +4,7 @@ import { Diagram } from "./diagram/diagram";
 import "./app.scss";
 import { getSnapshot } from "mobx-state-tree";
 import { CDocument } from "../models/c-document";
-
-
+import { ItemList } from "./item-list/item-list";
 
 const url = new URL(window.location.href);
 
@@ -15,7 +14,7 @@ const loadInitialState = () => {
   // Default diagram
   let document = {
     items: {
-      items: {
+      allItems: {
         "1": {
           id: "1",
           name: "A"
@@ -96,6 +95,7 @@ export const App = () => {
   return (
     <div className="app">
       <Diagram dqRoot={cDocument.diagram} items={cDocument.items}/>
+      <ItemList items={cDocument.items}/>
     </div>
   );
 };

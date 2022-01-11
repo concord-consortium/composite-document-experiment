@@ -10,14 +10,13 @@ export const Item = types.model("Item", {
     }
 }));
 
-
 export const Items = types.model("Items", {
-    items: types.map(Item)
+    allItems: types.map(Item)
 })
 .views(self => ({
     getNextId() {
         let maxId = 0;
-        for (const idString of Array.from(self.items.keys())){
+        for (const idString of Array.from(self.allItems.keys())){
           const id = parseInt(idString, 10);
           if (id > maxId) maxId = id;
         }
@@ -26,10 +25,10 @@ export const Items = types.model("Items", {
 }))
 .actions(self => ({
     addItem(newItem: Instance<typeof Item>) {
-        self.items.put(newItem);
+        self.allItems.put(newItem);
     },
     removeItemById(itemId: string) {
-        const nodeToRemove = self.items.get(itemId);
+        const nodeToRemove = self.allItems.get(itemId);
         // self.nodes.delete(nodeId);
         destroy(nodeToRemove);
     }
