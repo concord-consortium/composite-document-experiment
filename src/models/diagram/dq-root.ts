@@ -52,7 +52,7 @@ export const DQRoot = types.model("DQRoot", {
     removeNodeById(nodeId: string) {
         const nodeToRemove = self.nodes.get(nodeId);
         // self.nodes.delete(nodeId);
-        // FIXME: an warning is printed here because the QuantityNode component is observing
+        // FIXME: a warning is printed here because the QuantityNode component is observing
         // the node.name derived value. This component is not removed immediately, so the mobx
         // observer code runs to see if this derived value has changed. Running this means that
         // derived function is run which tries to use the destroyed node. 
