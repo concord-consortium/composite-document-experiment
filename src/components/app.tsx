@@ -50,6 +50,22 @@ const loadInitialState = () => {
             y: 150
         }
       }
+    },
+    itemList: {
+      allItems: [
+        {
+          id: "1",
+          item: "1"
+        },
+        {
+          id: "2",
+          item: "2"
+        },
+        {
+          id: "3",
+          item: "3"
+        }
+      ]
     }
   };
 
@@ -95,7 +111,7 @@ export const App = () => {
   return (
     <div className="app">
       <Diagram dqRoot={cDocument.diagram} items={cDocument.items}/>
-      <ItemList items={cDocument.items}/>
+      <ItemList itemList={cDocument.itemList} items={cDocument.items}/>
     </div>
   );
 };
