@@ -1,9 +1,11 @@
-import { Instance, types, destroy, getSnapshot } from "mobx-state-tree";
+import { Instance, types, getSnapshot, destroy } from "mobx-state-tree";
 import { Elements, isNode, OnLoadParams } from "react-flow-renderer/nocss";
+import { Items } from "../items/items";
 import { DQNode } from "./dq-node";
 
 export const DQRoot = types.model("DQRoot", {
-    nodes: types.map(DQNode)
+    nodes: types.map(DQNode),
+    items: types.reference(Items)
 })
 .volatile(self => ({
     rfInstance: undefined as OnLoadParams | undefined
@@ -49,13 +51,35 @@ export const DQRoot = types.model("DQRoot", {
     addNode(newNode: Instance<typeof DQNode>) {
         self.nodes.put(newNode);
     },
+
+    // This triggers a chain reaction which eventually removes the node:
+    //   1. remove item from items shared data model
+    //   2. this triggers the onInvalidated handler in the DQNode reference to the item
+    //   3. DQNode finds its DQRoot (this) and calls destroyNodeById
+    //
+    // If another tile removes the item from the shared data model,
+    // the first step is skipped (this action) and the last 2 steps work the same.
+    // 
+    // FIXME: a warning is printed here because the QuantityNode component is observing
+    // the node.name derived value. This component is not removed immediately, so the mobx
+    // observer code runs to see if this derived value has changed. Running this means that
+    // derived function is run which tries to use the destroyed node. 
     removeNodeById(nodeId: string) {
         const nodeToRemove = self.nodes.get(nodeId);
-        // self.nodes.delete(nodeId);
-        // FIXME: a warning is printed here because the QuantityNode component is observing
-        // the node.name derived value. This component is not removed immediately, so the mobx
-        // observer code runs to see if this derived value has changed. Running this means that
-        // derived function is run which tries to use the destroyed node. 
+        if (!nodeToRemove) {
+            return;
+        }
+
+        self.items.removeItemById(nodeToRemove.item.id);
+    },
+
+    // This action should not be called directly, otherwise there might be a item in 
+    // the items shared data model that no longer has a node in the diagram
+    destroyNodeById(nodeId: string) {
+        const nodeToRemove = self.nodes.get(nodeId);
+        if (!nodeToRemove) {
+            return;
+        }
         destroy(nodeToRemove);
     },
     setRfInstance(rfInstance: OnLoadParams) {

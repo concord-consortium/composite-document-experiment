@@ -34,12 +34,8 @@ export const _ItemList: React.FC<IProps> = ({itemList, items}) => {
           }
         });
     
-        // we should also look for items that are present in the itemList but not in items
-        // this implies they were deleted from the shared data model, so they should be 
-        // deleted from the tile data model too. 
-        // However this case can probably be handled by safe references. I think this would
-        // allow us to delete the objects referencing the deleted object in the shared
-        // data model
+        // When an item is deleted from the shared data model the onInvalidated callback of the item
+        // reference is called. So this should clean up the the related itemListItem
       });
     return disposer;    
   }, [itemList, items]);

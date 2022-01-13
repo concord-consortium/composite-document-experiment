@@ -11,6 +11,7 @@ export const Item = types.model("Item", {
 }));
 
 export const Items = types.model("Items", {
+    id: types.identifier,
     allItems: types.map(Item)
 })
 .views(self => ({

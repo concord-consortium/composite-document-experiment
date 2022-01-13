@@ -14,6 +14,7 @@ const loadInitialState = () => {
   // Default diagram
   let document = {
     items: {
+      id: "1",
       allItems: {
         "1": {
           id: "1",
@@ -30,6 +31,7 @@ const loadInitialState = () => {
       }
     },
     diagram: {
+      items: "1",
       nodes: {
         "1": {
             id: "1",
