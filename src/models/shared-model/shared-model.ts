@@ -1,6 +1,6 @@
 import { Instance, types, destroy } from "mobx-state-tree";
 
-export const Item = types.model("Item", {
+export const SharedItem = types.model("SharedItem", {
     id: types.identifier,
     name: types.maybe(types.string)
 })    
@@ -10,9 +10,9 @@ export const Item = types.model("Item", {
     }
 }));
 
-export const Items = types.model("Items", {
+export const SharedModel = types.model("SharedModel", {
     id: types.identifier,
-    allItems: types.map(Item)
+    allItems: types.map(SharedItem)
 })
 .views(self => ({
     getNextId() {
@@ -25,7 +25,7 @@ export const Items = types.model("Items", {
     }
 }))
 .actions(self => ({
-    addItem(newItem: Instance<typeof Item>) {
+    addItem(newItem: Instance<typeof SharedItem>) {
         self.allItems.put(newItem);
     },
     removeItemById(itemId: string) {

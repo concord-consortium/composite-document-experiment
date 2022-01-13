@@ -1,10 +1,10 @@
 import { types, getParent, hasParent } from "mobx-state-tree";
 import { Elements } from "react-flow-renderer/nocss";
-import { Item } from "../items/items";
+import { SharedItem } from "../shared-model/shared-model";
 
 export const DQNode = types.model("BasicNode", {
     id: types.identifier,
-    item: types.reference(Item, {
+    sharedItem: types.reference(SharedItem, {
         onInvalidated(ev) {
             const dqNode = ev.parent;
 
@@ -57,11 +57,11 @@ export const DQNode = types.model("BasicNode", {
             return elements;
         },
         get name() {
-            return self.item.name;
+            return self.sharedItem.name;
         }
     }))
     .actions(self => ({
         setName(newName?: string) {
-            self.item.setName(newName);
+            self.sharedItem.setName(newName);
         },
     }));

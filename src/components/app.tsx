@@ -13,7 +13,7 @@ const loadInitialState = () => {
   
   // Default diagram
   let document = {
-    items: {
+    sharedModel: {
       id: "1",
       allItems: {
         "1": {
@@ -31,23 +31,23 @@ const loadInitialState = () => {
       }
     },
     diagram: {
-      items: "1",
+      sharedModel: "1",
       nodes: {
         "1": {
             id: "1",
-            item: "1",
+            sharedItem: "1",
             x: 100,
             y: 100       
         },
         "2": {
             id: "2",
-            item: "2",
+            sharedItem: "2",
             x: 100,
             y: 200
         },
         "3": {
             id: "3",
-            item: "3",
+            sharedItem: "3",
             x: 250,
             y: 150
         }
@@ -57,15 +57,15 @@ const loadInitialState = () => {
       allItems: [
         {
           id: "1",
-          item: "1"
+          sharedItem: "1"
         },
         {
           id: "2",
-          item: "2"
+          sharedItem: "2"
         },
         {
           id: "3",
-          item: "3"
+          sharedItem: "3"
         }
       ]
     }
@@ -86,24 +86,18 @@ const cDocument = CDocument.create(loadInitialState());
 (window as any).getSnapshot = getSnapshot;
 
 
-// Somewhere here I want to:
-// create 2 components:
-// 1. diagram
-// 2. list view
+// Next step:
 // 
-// create 5 MST trees:
-// 1. diagram: for storing the positions and reference of boxes in a diagram
-// 2. diagram: for storing the synced state from the shared data model
-// 3. list view: for storing a checked state of the item in the list view
-// 4. list view: for storing the synced state from the shared data model
-// 5. shared data model: for storing the shared data model itself
+// create 3 independent MST trees:
+// 1. diagram state itself, and shared model state that is synced from
+//    actual shared model
+// 2. item list state itself, and shared model state that is synced from
+//    actual shared model
+// 3. actual shared model state
 //
 // Initially these will just try to render the right thing by sync'ing the 3
 // data model trees
-// without worrying about undo, I'll still need to figure out how the 
-// trees or components can respond to updates. When a new element is added 
-// in the data model, the component that didn't add it will have to get
-// notified and update itself.
+// without worrying about undo, 
 //
 // Once this is working, then I'll try to handle undo.
 // undo will require a new host component that is tracking the state
@@ -112,8 +106,8 @@ const cDocument = CDocument.create(loadInitialState());
 export const App = () => {
   return (
     <div className="app">
-      <Diagram dqRoot={cDocument.diagram} items={cDocument.items}/>
-      <ItemList itemList={cDocument.itemList} items={cDocument.items}/>
+      <Diagram dqRoot={cDocument.diagram} sharedModel={cDocument.sharedModel}/>
+      <ItemList itemList={cDocument.itemList} sharedModel={cDocument.sharedModel}/>
     </div>
   );
 };

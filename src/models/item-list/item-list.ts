@@ -1,9 +1,9 @@
 import { destroy, getParent, hasParent, Instance, types } from "mobx-state-tree";
-import { Item } from "../items/items";
+import { SharedItem } from "../shared-model/shared-model";
 
 export const ItemListItem = types.model("ItemListItem", {
     id: types.identifier,
-    item: types.reference(Item, {
+    sharedItem: types.reference(SharedItem, {
       onInvalidated(ev) {
         const itemListItem = ev.parent;
 
@@ -20,7 +20,7 @@ export const ItemListItem = types.model("ItemListItem", {
         const itemList = getParent(itemListItem, 2);
         
         // due to the circular reference here between parent and child, if the two were
-        // define in different files (like DQNode and DQRoot), then we can't refer to 
+        // defined in different files (like DQNode and DQRoot), then we can't refer to 
         // the parent from the child. So the approach below is consistent with what DQNode
         // does.
         (itemList as any).destroyItemById(itemListItem.id);
@@ -38,12 +38,12 @@ export const ItemListItem = types.model("ItemListItem", {
 })
 .views(self => ({
     get name() {
-        return self.item.name;
+        return self.sharedItem.name;
     }
 }))
 .actions(self => ({
     setName(newName?: string) {
-        self.item.name = newName;
+        self.sharedItem.name = newName;
     }
 }));
 
@@ -69,7 +69,7 @@ export const ItemList = types.model("ItemList", {
     },
 
     // This action should not be called directly, otherwise there might be an item in 
-    // the items shared data model that no longer has a itemListItem in the itemList
+    // the shared model that no longer has a itemListItem in the itemList
     destroyItemById(id: string) {
         const foundItem = self.allItems.find((item) => item.id === id);
         if (!foundItem) {

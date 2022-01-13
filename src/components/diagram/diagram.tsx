@@ -19,7 +19,7 @@ import "react-flow-renderer/dist/theme-default.css";
 // The order matters the diagram css overrides some styles
 // from the react-flow css.
 import "./diagram.scss";
-import { Item, Items } from "../../models/items/items";
+import { SharedItem, SharedModel } from "../../models/shared-model/shared-model";
 
 const nodeTypes = {
   quantityNode: QuantityNode,
@@ -27,16 +27,16 @@ const nodeTypes = {
 
 interface IProps {
   dqRoot: Instance<typeof DQRoot>;
-  items: Instance<typeof Items>;
+  sharedModel: Instance<typeof SharedModel>;
 }
 
 // FIXME: instead of directly passing in the items here,
-// the dqRoot should have a way to reference the items shared data model
+// the dqRoot should have a way to reference the shared model
 // this way multiple items shared data models can be supported in the same
 // document. 
 // Additionally it then becomes the responsibility of the model to keep
 // the two lists in sync
-export const _Diagram: React.FC<IProps> = ({dqRoot, items}) => {
+export const _Diagram: React.FC<IProps> = ({dqRoot, sharedModel }) => {
   const reactFlowWrapper = useRef<any>(null);
   const [selectedNode, setSelectedNode] = useState<Instance<typeof DQNode> | undefined>();
 
@@ -80,17 +80,17 @@ export const _Diagram: React.FC<IProps> = ({dqRoot, items}) => {
       y: event.clientY - reactFlowBounds.top,
     });
 
-    const item = Item.create({
+    const sharedItem = SharedItem.create({
       // FIXME: this approach of adding an item should be streamlined
-      // it seems best if the new item id was calculated by the Items model itself.
-      id: items.getNextId().toString(),
+      // it seems best if the new item id was calculated by the sharedModel itself.
+      id: sharedModel.getNextId().toString(),
       name: "new"
     });
-    items.addItem(item);
+    sharedModel.addItem(sharedItem);
 
     const dqNode = DQNode.create({
       id: dqRoot.getNextId().toString(),
-      item: item.id,
+      sharedItem: sharedItem.id,
       x: position.x,
       y: position.y   
     });
