@@ -19,7 +19,6 @@ import "react-flow-renderer/dist/theme-default.css";
 // The order matters the diagram css overrides some styles
 // from the react-flow css.
 import "./diagram.scss";
-import { SharedItem, SharedModel } from "../../models/shared-model/shared-model";
 
 const nodeTypes = {
   quantityNode: QuantityNode,
@@ -27,7 +26,6 @@ const nodeTypes = {
 
 interface IProps {
   dqRoot: Instance<typeof DQRoot>;
-  sharedModel: Instance<typeof SharedModel>;
 }
 
 // FIXME: instead of directly passing in the items here,
@@ -36,7 +34,7 @@ interface IProps {
 // document. 
 // Additionally it then becomes the responsibility of the model to keep
 // the two lists in sync
-export const _Diagram: React.FC<IProps> = ({dqRoot, sharedModel }) => {
+export const _Diagram: React.FC<IProps> = ({dqRoot }) => {
   const reactFlowWrapper = useRef<any>(null);
   const [selectedNode, setSelectedNode] = useState<Instance<typeof DQNode> | undefined>();
 
@@ -80,21 +78,7 @@ export const _Diagram: React.FC<IProps> = ({dqRoot, sharedModel }) => {
       y: event.clientY - reactFlowBounds.top,
     });
 
-    const sharedItem = SharedItem.create({
-      // FIXME: this approach of adding an item should be streamlined
-      // it seems best if the new item id was calculated by the sharedModel itself.
-      id: sharedModel.getNextId().toString(),
-      name: "new"
-    });
-    sharedModel.addItem(sharedItem);
-
-    const dqNode = DQNode.create({
-      id: dqRoot.getNextId().toString(),
-      sharedItem: sharedItem.id,
-      x: position.x,
-      y: position.y   
-    });
-    dqRoot.addNode(dqNode);
+    dqRoot.addNode({name: "new", position});
   };
 
   return (

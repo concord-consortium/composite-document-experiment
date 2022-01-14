@@ -1,5 +1,6 @@
 import { destroy, getParent, hasParent, Instance, types } from "mobx-state-tree";
-import { SharedItem } from "../shared-model/shared-model";
+import { SharedItem, SharedModel } from "../shared-model/shared-model";
+import { autorun, IReactionDisposer } from "mobx";
 
 export const ItemListItem = types.model("ItemListItem", {
     id: types.identifier,
@@ -48,6 +49,7 @@ export const ItemListItem = types.model("ItemListItem", {
 }));
 
 export const ItemList = types.model("ItemList", {
+    sharedModel: types.reference(SharedModel),
     allItems: types.array(ItemListItem)
 })
 .views(self => ({
@@ -77,4 +79,37 @@ export const ItemList = types.model("ItemList", {
         }
         destroy(foundItem);
     }
-}));
+}))
+.actions(self => {
+    let autorunDisposer: IReactionDisposer | undefined;
+
+    function afterCreate() {
+        // keep our model in sync with the shared model
+        // TODO: analyze performance, does this run when the name changes?
+        //   We should try to keep it from running this this case. 
+        //   The goal is just to keep the references in sync
+        autorunDisposer = autorun(() => {
+          Array.from(self.sharedModel.allItems.values()).forEach(item => {
+            // sync up shared data model items with the tile data of items
+            // look for this item in the itemList, if it is not there add it
+            const matchingItem = self.allItems.find(itemListItem => itemListItem.sharedItem.id === item.id);
+            if (!matchingItem) {
+                const newItem = ItemListItem.create({ id: self.getNextId().toString(), sharedItem: item.id });
+                self.addItem(newItem);
+            }
+          });
+      
+          // When an item is deleted from the shared data model the onInvalidated callback of the item
+          // reference is called. So this should clean up the the related itemListItem
+        });
+    }
+
+    function beforeDestroy() {
+       autorunDisposer?.();
+    }
+
+    return {
+        afterCreate,
+        beforeDestroy
+    };
+});

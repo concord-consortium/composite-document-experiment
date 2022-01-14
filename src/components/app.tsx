@@ -54,6 +54,7 @@ const loadInitialState = () => {
       }
     },
     itemList: {
+      sharedModel: "1",
       allItems: [
         {
           id: "1",
@@ -106,8 +107,8 @@ const cDocument = CDocument.create(loadInitialState());
 export const App = () => {
   return (
     <div className="app">
-      <Diagram dqRoot={cDocument.diagram} sharedModel={cDocument.sharedModel}/>
-      <ItemList itemList={cDocument.itemList} sharedModel={cDocument.sharedModel}/>
+      <Diagram dqRoot={cDocument.diagram} />
+      <ItemList itemList={cDocument.itemList} />
     </div>
   );
 };

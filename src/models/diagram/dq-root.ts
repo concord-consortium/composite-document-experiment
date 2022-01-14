@@ -1,6 +1,6 @@
-import { Instance, types, getSnapshot, destroy } from "mobx-state-tree";
+import { types, getSnapshot, destroy } from "mobx-state-tree";
 import { Elements, isNode, OnLoadParams } from "react-flow-renderer/nocss";
-import { SharedModel } from "../shared-model/shared-model";
+import { SharedItem, SharedModel } from "../shared-model/shared-model";
 import { DQNode } from "./dq-node";
 
 export const DQRoot = types.model("DQRoot", {
@@ -48,8 +48,26 @@ export const DQRoot = types.model("DQRoot", {
     }
 }))
 .actions(self => ({
-    addNode(newNode: Instance<typeof DQNode>) {
-        self.nodes.put(newNode);
+    addNode({name, position}: {name: string, position: {x: number, y: number}}) {
+        const sharedItem = SharedItem.create({
+            // FIXME: this approach of adding an item should be streamlined
+            // it seems best if the new item id was calculated by the sharedModel itself.
+            id: self.sharedModel.getNextId().toString(),
+            name
+        });
+
+        // If the diagram was syncing with the shared model like the itemList does
+        // we could stop here
+        self.sharedModel.addItem(sharedItem);
+    
+        const dqNode = DQNode.create({
+            id: self.getNextId().toString(),
+            sharedItem: sharedItem.id,
+            x: position.x,
+            y: position.y   
+        });
+
+        self.nodes.put(dqNode);
     },
 
     // This triggers a chain reaction which eventually removes the node:
