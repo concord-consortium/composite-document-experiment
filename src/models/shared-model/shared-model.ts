@@ -1,4 +1,4 @@
-import { Instance, types, destroy } from "mobx-state-tree";
+import { types, destroy } from "mobx-state-tree";
 
 export const SharedItem = types.model("SharedItem", {
     id: types.identifier,
@@ -25,8 +25,15 @@ export const SharedModel = types.model("SharedModel", {
     }
 }))
 .actions(self => ({
-    addItem(newItem: Instance<typeof SharedItem>) {
+    addItem(name: string) {
+        const newItem = SharedItem.create({
+            id: self.getNextId().toString(),
+            name
+        });
+
         self.allItems.put(newItem);
+
+        return newItem;
     },
     removeItemById(itemId: string) {
         const nodeToRemove = self.allItems.get(itemId);

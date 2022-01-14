@@ -28,12 +28,6 @@ interface IProps {
   dqRoot: Instance<typeof DQRoot>;
 }
 
-// FIXME: instead of directly passing in the items here,
-// the dqRoot should have a way to reference the shared model
-// this way multiple items shared data models can be supported in the same
-// document. 
-// Additionally it then becomes the responsibility of the model to keep
-// the two lists in sync
 export const _Diagram: React.FC<IProps> = ({dqRoot }) => {
   const reactFlowWrapper = useRef<any>(null);
   const [selectedNode, setSelectedNode] = useState<Instance<typeof DQNode> | undefined>();
