@@ -3,8 +3,8 @@ import { Diagram } from "./diagram/diagram";
 
 import "./app.scss";
 import { getSnapshot } from "mobx-state-tree";
-import { CDocument } from "../models/c-document";
 import { ItemList } from "./item-list/item-list";
+import { Container } from "../models/container";
 
 const url = new URL(window.location.href);
 
@@ -19,54 +19,42 @@ const loadInitialState = () => {
         "1": {
           id: "1",
           name: "A"
-        },
-        "2": {
-          id: "2",
-          name: "B"
-        },
-        "3": {
-          id: "3",
-          name: "C"
-        }  
+        }
       }
     },
     diagram: {
-      sharedModel: "1",
+      sharedModel: {
+        id: "1",
+        allItems: {
+          "1": {
+            id: "1",
+            name: "A"
+          }
+        }  
+      },
       nodes: {
         "1": {
             id: "1",
             sharedItem: "1",
             x: 100,
             y: 100       
-        },
-        "2": {
-            id: "2",
-            sharedItem: "2",
-            x: 100,
-            y: 200
-        },
-        "3": {
-            id: "3",
-            sharedItem: "3",
-            x: 250,
-            y: 150
         }
       }
     },
     itemList: {
-      sharedModel: "1",
+      sharedModel: {
+        id: "1",
+        allItems: {
+          "1": {
+            id: "1",
+            name: "A"
+          }
+        }  
+      },
       allItems: [
         {
           id: "1",
           sharedItem: "1"
-        },
-        {
-          id: "2",
-          sharedItem: "2"
-        },
-        {
-          id: "3",
-          sharedItem: "3"
         }
       ]
     }
@@ -80,10 +68,15 @@ const loadInitialState = () => {
   return document;
 };
 
-const cDocument = CDocument.create(loadInitialState());
+const initialState = loadInitialState();
+const trees = Container({
+  initialSharedModel: initialState.sharedModel,
+  initialDiagram: initialState.diagram,
+  initialItemList: initialState.itemList
+});
 
 // For debugging
-(window as any).cDocument = cDocument;
+(window as any).trees = trees;
 (window as any).getSnapshot = getSnapshot;
 
 
@@ -107,8 +100,8 @@ const cDocument = CDocument.create(loadInitialState());
 export const App = () => {
   return (
     <div className="app">
-      <Diagram dqRoot={cDocument.diagram} />
-      <ItemList itemList={cDocument.itemList} />
+      <Diagram dqRoot={trees.diagram} />
+      <ItemList itemList={trees.list} />
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import { types, getParent, hasParent } from "mobx-state-tree";
+import { types, getParent, hasParent, tryReference } from "mobx-state-tree";
 import { Elements } from "react-flow-renderer/nocss";
 import { SharedItem } from "../shared-model/shared-model";
 
@@ -20,10 +20,19 @@ export const DQNode = types.model("BasicNode", {
             // There will be a map between the node and the root
             const dqRoot = getParent(dqNode, 2);
             
-            // due to the circular reference here it doesn't seem like we can import
-            // the DQRoot type and use getParentOfType. It might work if we use types.late
-            // though.
-            (dqRoot as any).destroyNodeById(dqNode.id);
+            // We need to delay when we actually destroy the node referring to the shared item.
+            // This is necessary if this invalidation happens during an applySnapshot.  
+            // This is because the process of applying the snapshot might continue after this 
+            // onInvalidation callback runs and the remaining updates in the snapshot might 
+            // recreate the node again.
+            // Note: it seems in this case the ev.type is actually "destroy" instead of "snapshot"
+            setTimeout(() => {
+
+                // due to the circular reference here it doesn't seem like we can import
+                // the DQRoot type and use getParentOfType. It might work if we use types.late
+                // though.
+                (dqRoot as any).destroyNodeById(dqNode.id);
+            });
 
             // NOTE: it isn't safe to just call destroy on ourselves like
             //    destroy(ev.parent)
@@ -57,7 +66,9 @@ export const DQNode = types.model("BasicNode", {
             return elements;
         },
         get name() {
-            return self.sharedItem.name;
+            const sharedItem = tryReference(() => self.sharedItem);
+            return sharedItem ? sharedItem.name : "invalid ref";
+            // The user should really never see this invalid ref
         }
     }))
     .actions(self => ({
