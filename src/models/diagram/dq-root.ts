@@ -109,22 +109,8 @@ export const DQRoot = types.model("DQRoot", {
         //   We should try to keep it from running this this case. 
         //   The goal is just to keep the references in sync
         autorunDisposer = autorun(() => {
-          Array.from(self.sharedModel.allItems.values()).forEach(sharedItem => {
-            // sync up shared data model items with the tile data of items
-            // look for this item in the itemList, if it is not there add it
-            const sharedItemId = sharedItem.id;
-            const matchingItem = Array.from(self.nodes.values()).find(node => node.sharedItem.id === sharedItemId);
-            if (!matchingItem) {
-                const newNode = DQNode.create({ 
-                    id: self.getNextId().toString(), 
-                    sharedItem: sharedItemId,
-                    x: 100,
-                    y: 100
-                });
-                self.nodes.put(newNode);
-            }
-          });
-      
+          // First clean up any nodes that reference invalid (removed) shared items
+
           // I tried using onInvalidated to clean up the objects making references but this didn't work.
           // onInvalidated didn't always run when snapshots were applied. This might be a bug in MST.
           // So instead we use this approach. This code should run any time either set of items 
@@ -138,6 +124,26 @@ export const DQRoot = types.model("DQRoot", {
                 self.destroyNodeById(node.id);
             }
           });        
+
+          Array.from(self.sharedModel.allItems.values()).forEach(sharedItem => {
+            // sync up shared data model items with the tile data of items
+            // look for this item in the itemList, if it is not there add it
+            const sharedItemId = sharedItem.id;
+            const nodeArray = Array.from(self.nodes.values());
+            
+            // We cleaned up any nodes with invalid sharedItem references first so 
+            // the check below should be safe
+            const matchingItem = nodeArray.find(node => node.sharedItem.id === sharedItemId);
+            if (!matchingItem) {
+                const newNode = DQNode.create({ 
+                    id: self.getNextId().toString(), 
+                    sharedItem: sharedItemId,
+                    x: 100,
+                    y: 100
+                });
+                self.nodes.put(newNode);
+            }
+          });      
         });
     }
 
