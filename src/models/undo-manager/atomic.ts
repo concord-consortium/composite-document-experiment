@@ -6,10 +6,15 @@ import {
     isActionContextThisOrChildOf
 } from "mobx-state-tree";
 
+/**
+ * Record all patches from all initial or top level actions, group together
+ * patches from child actions.  If an error happens during the action undo
+ * the action.
+ */
 const atomic = createActionTrackingMiddleware2<{ recorder: IPatchRecorder }>({
     filter(call) {
-        // only call the methods above for actions that were not being recorded,
-        // but do not call them for child acions (which inherit a copy of the env)
+        // only call the methods below for actions that were not being recorded,
+        // but do not call them for child actions (which inherit a copy of the env)
         if (call.env) {
             // already recording
             return false;
@@ -33,6 +38,7 @@ const atomic = createActionTrackingMiddleware2<{ recorder: IPatchRecorder }>({
         recorder.stop();
 
         if (error !== undefined) {
+            // CHECKME: is the error logged in this case, or it is silently undone?
             recorder.undo();
         }
     }

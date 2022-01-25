@@ -51,6 +51,8 @@ const UndoManager = types
         }
 
         type GroupRecorder = Pick<IPatchRecorder, "patches" | "inversePatches">
+        // This is essentially a global variable for tracking the group recorders
+        // To start simple I'm going to remove this feature
         const groupRecorders: GroupRecorder[] = [];
 
         const undoRedoMiddleware = createActionTrackingMiddleware2<Context>({
@@ -60,7 +62,7 @@ const UndoManager = types
                     return false;
                 }
                 if (call.context === self) {
-                    // also skip actions over self
+                    // also skip actions on ourselves, the undo manager
                     return false;
                 }
 
@@ -90,6 +92,7 @@ const UndoManager = types
                 recorder.stop();
 
                 if (error === undefined) {
+                    // To start simple I'm going to remove this feature
                     if (groupRecorders.length > 0) {
                         const groupRecorder = groupRecorders[groupRecorders.length - 1];
                         groupRecorder.patches = groupRecorder.patches.concat(recorder.patches);
@@ -105,6 +108,20 @@ const UndoManager = types
             }
         });
 
+        /**
+         * This is used both internally to skip recording the undo and redo actions, and
+         * to allow code using this middle ware to skip certain actions. 
+         * 
+         * The internal actions modify the recorded tree, so they should be skipped for 
+         * purposes of undo. However, in order to support time travel that includes undo 
+         * and redo we will need to record them somewhere, but perhaps that would be a 
+         * separate middleware.
+         * 
+         * The `recordingDisabled` counter is used above in onStart in its recordPatches 
+         * callback. Note that this is global setting. So if something starts skipping
+         * recording that would be applied to all actions even un related asynchronous 
+         * ones. 
+         */
         const skipRecording = <T>(fn: () => T): T => {
             recordingDisabled++;
             try {
@@ -116,22 +133,35 @@ const UndoManager = types
 
         return {
             addUndoState(recorder: GroupRecorder) {
+                // Why withoutUndo is used here, but skipRecording is used elsewhere doesn't
+                // seem to make much sense, they both do the same thing. However withoutUndo
+                // is an actual action, so perhaps that matters?
                 this.withoutUndo(() => {
                     if (recorder.patches.length === 0) {
                         // skip recording if patches is empty
                         return;
                     }
+                    // This is a new user action, so if they had undone some amount
+                    // we delete that part of the history past this point
                     self.history.splice(self.undoIdx);
+                    // Add a new entry with the patches and inverse patches
+                    // it would be useful to record the name of the action here too 
                     self.history.push({
                         patches: recorder.patches,
                         inversePatches: recorder.inversePatches
-                    });
+                    });                    
                     const maxLength = getEnv(self).maxHistoryLength || Infinity;
+                    // delete items from the beginning of the history so the total is maxLength
                     self.history.splice(0, self.history.length - maxLength);
+                    // reset the undoIdx to the end of the history, this is because it is a 
+                    // new user action so anything past this point can no longer be redone
                     self.undoIdx = self.history.length;
                 });
             },
             afterCreate() {
+                // currently supports two options for integration:
+                // 1. as a separate tree and using targetStore to tell the part of the tree to manage
+                // 2. or as a sub part of the tree being recorded
                 const selfRoot = getRoot(self);
                 targetStore = getEnv(self).targetStore || selfRoot;
                 if (targetStore === self) {
@@ -144,6 +174,14 @@ const UndoManager = types
                     includeHooks = getEnv(self).includeHooks;
                 }
 
+                // I'd guess in our case we always want to include hooks. If a model makes some 
+                // changes to its state when it is added to the tree during an action we'd want that
+                // to be part of the undo stack.  
+                //
+                // TODO: however perhaps this setting is just for the initial action. So perhaps even
+                // without this the creation of a model would be recorded by the recorder if it was
+                // a done in a child action. So we should do some experimenation with middleware
+                // the recorder and hooks.
                 addDisposer(self, addMiddleware(targetStore, undoRedoMiddleware, includeHooks));
             },
             undo: decorate(atomic, () => {
@@ -151,9 +189,13 @@ const UndoManager = types
                     if (!self.canUndo) {
                         throw new Error("undo not possible, nothing to undo");
                     }
+                    // Note this is actually applying the array of patches associated with the 
+                    // the last action
                     applyPatch(
                         getRoot(targetStore),
                         // n.b: reverse patches back to forth
+                        // the slice is used to copy the patches array so it can
+                        // be reversed in place with reverse.
                         self.history[self.undoIdx - 1].inversePatches.slice().reverse()
                     );
                     self.undoIdx--;
@@ -181,6 +223,7 @@ const UndoManager = types
                     }
                 });
             },
+            // I'll disable this for now until we need it
             startGroup<T>(fn: () => T): T {
                 if (groupRecorders.length >= 1) {
                     throw new Error(
@@ -193,6 +236,7 @@ const UndoManager = types
                 });
                 return fn();
             },
+            // I'll disable this for now until we need it
             stopGroup() {
                 const groupRecorder = groupRecorders.pop();
                 if (!groupRecorder) {
