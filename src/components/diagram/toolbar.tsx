@@ -1,5 +1,5 @@
 
-import { Instance } from "mobx-state-tree";
+import { Instance, getSnapshot } from "mobx-state-tree";
 import React from "react";
 import { DQRoot } from "../../models/diagram/dq-root";
 
@@ -16,7 +16,8 @@ export const ToolBar: React.FC<IProps> = ({dqRoot}) => {
     // FIXME: this is currently broken it is just generating a URL for the diagram
     // instead of one for the whole document.
     const copyDiagramURL = () => {
-        const exportedDiagram = dqRoot.getDiagramState();
+        const exportedDiagram = getSnapshot(dqRoot);
+        console.log("exportedDiagram", exportedDiagram);
         const url = new URL(window.location.href);
         url.searchParams.set("diagram", JSON.stringify(exportedDiagram));
         console.log(url.href);

@@ -31,6 +31,7 @@ interface IProps {
 export const _Diagram: React.FC<IProps> = ({dqRoot }) => {
   const reactFlowWrapper = useRef<any>(null);
   const [selectedNode, setSelectedNode] = useState<Instance<typeof DQNode> | undefined>();
+  const [rfInstance, setRfInstance] = useState<any>();
 
   const onElementsRemove = (elementsToRemove: Elements) => {
     for(const element of elementsToRemove) {
@@ -62,12 +63,12 @@ export const _Diagram: React.FC<IProps> = ({dqRoot }) => {
   const onDrop = (event: any) => {
     event.preventDefault();
 
-    if (!reactFlowWrapper.current || !dqRoot.rfInstance) {
+    if (!reactFlowWrapper.current || !rfInstance) {
       return;
     }
 
     const reactFlowBounds = reactFlowWrapper.current.getBoundingClientRect();
-    const position = dqRoot.rfInstance.project({
+    const position = rfInstance.project({
       x: event.clientX - reactFlowBounds.left,
       y: event.clientY - reactFlowBounds.top,
     });
@@ -75,6 +76,12 @@ export const _Diagram: React.FC<IProps> = ({dqRoot }) => {
     dqRoot.addNode({name: "new", position});
   };
 
+  // Keep the MST node model in sync with the diagram
+  const onNodeDragStop = (event: any, node: any) => {
+    const mstNode = dqRoot.nodes.get(node.id);
+    mstNode?.updatePosition(node.position.x, node.position.y);
+  };  
+  
   return (
     <div className="diagram" ref={reactFlowWrapper}>
       <ReactFlowProvider>
@@ -82,9 +89,10 @@ export const _Diagram: React.FC<IProps> = ({dqRoot }) => {
           nodeTypes={nodeTypes} 
           onElementsRemove={onElementsRemove}
           onSelectionChange={onSelectionChange}
-          onLoad={(rfInstance) => dqRoot.setRfInstance(rfInstance)}
+          onLoad={(_rfInstance) => setRfInstance(_rfInstance)}
           onDrop={onDrop}
-          onDragOver={onDragOver}>
+          onDragOver={onDragOver}
+          onNodeDragStop={onNodeDragStop}>
           <Controls />
           { selectedNode && 
             <NodeForm node={selectedNode}/>

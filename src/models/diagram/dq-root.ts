@@ -1,6 +1,6 @@
-import { types, getSnapshot, destroy, isValidReference } from "mobx-state-tree";
+import { types, destroy, isValidReference } from "mobx-state-tree";
 import { autorun, IReactionDisposer } from "mobx";
-import { Elements, isNode, OnLoadParams } from "react-flow-renderer/nocss";
+import { Elements } from "react-flow-renderer/nocss";
 import { SharedModel } from "../shared-model/shared-model";
 import { DQNode } from "./dq-node";
 
@@ -8,9 +8,6 @@ export const DQRoot = types.model("DQRoot", {
     nodes: types.map(DQNode),
     sharedModel: SharedModel
 })
-.volatile(self => ({
-    rfInstance: undefined as OnLoadParams | undefined
-}))
 .views(self => ({
     get reactFlowElements() {
         const elements: Elements = [];
@@ -19,26 +16,6 @@ export const DQRoot = types.model("DQRoot", {
         });
         return elements;
     },
-    // NOTE: these are not reactive, so components accessing them won't be re-rendered
-    // automatically if the value changes
-    getDiagramState() {
-        const currentSnapshot = getSnapshot(self);
-        const currentModel = JSON.parse(JSON.stringify(currentSnapshot));
-        const currentDiagram = self.rfInstance?.toObject();
-        if (!currentDiagram) {
-          return;
-        }
-        for(const node of currentDiagram.elements) {
-          if (isNode(node)) {
-            const modelNode = currentModel.nodes[node.id];
-            modelNode.x = node.position.x;
-            modelNode.y = node.position.y;
-          }
-        }
-        console.log("Exported Diagram", currentModel);
-        return currentModel;
-    },
-    
     getNextId() {
         let maxId = 0;
         for (const idString of Array.from(self.nodes.keys())){
@@ -96,9 +73,6 @@ export const DQRoot = types.model("DQRoot", {
         }
         destroy(nodeToRemove);
     },
-    setRfInstance(rfInstance: OnLoadParams) {
-        self.rfInstance = rfInstance;
-    }
 }))
 .actions(self => {
     let autorunDisposer: IReactionDisposer | undefined;
@@ -108,7 +82,9 @@ export const DQRoot = types.model("DQRoot", {
         // TODO: analyze performance, does this run when the name changes?
         //   We should try to keep it from running this this case. 
         //   The goal is just to keep the references in sync
-        autorunDisposer = autorun(() => {
+        autorunDisposer = autorun((reaction) => {
+        //   reaction.trace(true);
+
           // First clean up any nodes that reference invalid (removed) shared items
 
           // I tried using onInvalidated to clean up the objects making references but this didn't work.
@@ -144,7 +120,7 @@ export const DQRoot = types.model("DQRoot", {
                 self.nodes.put(newNode);
             }
           });      
-        });
+        }, { name: "sync diagram and shared model" });
     }
 
     function beforeDestroy() {
