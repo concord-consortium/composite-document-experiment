@@ -79,9 +79,7 @@ export const DQRoot = types.model("DQRoot", {
 
     function afterCreate() {
         // keep our model in sync with the shared model
-        // TODO: analyze performance, does this run when the name changes?
-        //   We should try to keep it from running this this case. 
-        //   The goal is just to keep the references in sync
+        // TODO: switch to addDisposer here
         autorunDisposer = autorun((reaction) => {
         //   reaction.trace(true);
 

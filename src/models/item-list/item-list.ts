@@ -60,9 +60,10 @@ export const ItemList = types.model("ItemList", {
 
     function afterCreate() {
         // keep our model in sync with the shared model
-        // TODO: analyze performance, does this run when the name changes?
-        //   We should try to keep it from running this this case. 
-        //   The goal is just to keep the references in sync
+        // This does not run when the name changes because we don't ever read the name of the 
+        // item.
+        // TODO: switch to addDisposer(self, ...) this is more concise and doesn't require an extra
+        // explicit hook, and disposer variable.
         autorunDisposer = autorun(() => {
             // First cleanup any invalid references this can happen when a item is deleted
 
