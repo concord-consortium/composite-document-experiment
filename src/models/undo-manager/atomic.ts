@@ -33,7 +33,11 @@ const atomic = createActionTrackingMiddleware2<{ recorder: IPatchRecorder }>({
         };
     },
     onFinish(call, error) {
-        const recorder = call.env!.recorder;
+        const recorder = call.env?.recorder;
+        if (!recorder) {
+            throw new Error("The call.env is corrupted");
+        }
+
         call.env = undefined;
         recorder.stop();
 
