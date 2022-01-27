@@ -73,3 +73,68 @@ waiting for the shared model to load. So any code referring to these references 
 handle this case too. The code could know the shared model is loading and bypass 
 any rendering. Or each place that has a reference could be wrapped in `tryReference` or
 `isValidReference`. 
+
+# Handling Undo
+
+Current plan:
+- add a pause option in the autorun that is sync/translating sharedModel <-> tileModel
+- when the container does an undo the tile pauses this autorun
+- the container sends the tile's changeset
+- the tile confirms that its changeset has been applied: this is so the container doesn't
+tell it to re-enable the autorun too soon. 
+- the container sends or applies the sharedModel changeset
+- the sharedModel is synced with all of the tiles
+- the tile confirms that the sharedModel has been sync'd: this is so the autorun doesn't
+happen too soon. There might be multiple sharedModels used by a tile. The sharedModel
+API might not be a simple clone of the sharedModel, there might be a query involved to
+get a filtered version of the sharedModel that is used by the tile.
+- the container tells the tile to re-enable the autorun, and re-sync/translate its 
+  tree with the shared model
+
+
+Things to note:
+- we need a better name for the sync/translating autorun code because it will be a
+key part of using shared models.
+- the tile UI needs to handle the case where sharedModel references are invalid. It
+doesn't mater if the sharedModel changes are applied first or second. There is always
+a case where the tile model can be temporarily referencing a sharedModel that doesn't
+exist yet.  The 2 basic cases are:  1) the changeset adds a sharedModel item 2) the
+changeset removes a sharedModel item. 
+TODO: spell this out more carefully.
+- because of these temporary invalid times, any tile code that makes changes based
+on the sharedModel need to be in the autorun or some construct that can be called 
+on demand by the framework.  Example changes are adding or removing nodes that reference
+sharedModel items. Or maintaining properties in the tile state that are summaries of
+data in the sharedModel.  Basically anytime there is a dependency between the tile 
+model and the shared model.
+- if the applying of the changes takes a significate amount of time the user might 
+make additional changes that can cause conflicts. However this seems like a necessary
+trade off so the whole UI doesn't become locked during a simple undo. We'll have to
+experiment with this to see how it works in practice.
+- this same approach can probably be used when reloading the document, however in that
+case it might make sense to lock some parts of document until they are are fully
+loaded.
+
+New Issues figured out:
+
+In order to record the actions under a single ID whenever the sharedModel is changed
+by the tile the id of the main action that triggered this needs to be passed through.
+And the opposite is true too, since a change in the sharedModel might trigger a change
+additions or deletions in the tile model.
+
+When these changes happen because of a sync of the shared model it is possible to 
+record this. The global action will be sent down, and the action that makes the
+change can receive this as a parameter. The undo recording middleware can see this 
+param and record it.
+
+When the changes happen because a tile model action changes its copy of the shared
+model, I don't know an easy way to record this id as well as syncing the changes.
+Currently the sync in this directly happens because of an autorun that gets
+triggered by the changes made by the tile model action. As far as I know this
+autorun happens after the main action is finished, so it won't have access to the
+id. The manual solution to this is require tile authors to run an sync process
+each time they change the shared model. 
+
+The undo middleware is picking up these changes to the tile's copy of the shared model.
+So it could track them and run the sync when the action is done. This seems like
+the best approach based on what we've got right now.
