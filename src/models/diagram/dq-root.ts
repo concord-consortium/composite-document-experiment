@@ -1,5 +1,4 @@
 import { types, destroy, isValidReference, getSnapshot, applySnapshot } from "mobx-state-tree";
-import { autorun, IReactionDisposer } from "mobx";
 import { Elements } from "react-flow-renderer/nocss";
 import { SharedModel } from "../shared-model/shared-model";
 import { DQNode } from "./dq-node";
@@ -84,42 +83,34 @@ export const DQRoot = types.model("DQRoot", {
         applySnapshot(self, tileSnapshot);
     },
 
-}))
-.actions(self => {
-    let autorunDisposer: IReactionDisposer | undefined;
-
-    function afterCreate() {
-        // keep our model in sync with the shared model
-        // TODO: switch to addDisposer here
-        autorunDisposer = autorun((reaction) => {
-        //   reaction.trace(true);
-
-          // First clean up any nodes that reference invalid (removed) shared items
-
-          // I tried using onInvalidated to clean up the objects making references but this didn't work.
-          // onInvalidated didn't always run when snapshots were applied. This might be a bug in MST.
-          // So instead we use this approach. This code should run any time either set of items 
-          // changes. So far it seems to be working.
-          self.nodes.forEach(node => {
+    syncSharedModelWithTileModel() {
+        // First clean up any nodes that reference invalid (removed) shared items.
+        // See notes.md for while using onInvalidated didn't work for doing this
+        self.nodes.forEach(node => {
             // If the sharedItem is not valid destroy the list item
-            // CHECKME: This approach might be too aggressive. If this autorun gets applied while an applySnapshot
-            // is in the process of running, then the reference might be invalid briefly while the rest of 
+            // CHECKME: This approach might be too aggressive. If the sync is run 
+            // while an applySnapshot is in the process of running, 
+            // then the reference might be invalid briefly while the rest of 
             // the items are loading.
             if (!isValidReference(() => node.sharedItem)) {
-                self.destroyNodeById(node.id);
+                // `this` is used so we can reference actions defined in the same block
+                this.destroyNodeById(node.id);
             }
-          });        
+        });        
 
-          Array.from(self.sharedModel.allItems.values()).forEach(sharedItem => {
-            // sync up shared data model items with the tile data of items
-            // look for this item in the itemList, if it is not there add it
+        // Second add new nodes for any new shared items.
+        Array.from(self.sharedModel.allItems.values()).forEach(sharedItem => {
             const sharedItemId = sharedItem.id;
             const nodeArray = Array.from(self.nodes.values());
-            
+        
             // We cleaned up any nodes with invalid sharedItem references first so 
-            // the check below should be safe
+            // calling `node.sharedItem.id` should be safe
             const matchingItem = nodeArray.find(node => node.sharedItem.id === sharedItemId);
             if (!matchingItem) {
+                // CHECKME: just like deletion, if this sync is run during a time
+                // when tile model hasn't been fully loaded yet, new nodes might be
+                // added that are already present in the diagram state that just hasn't
+                // been loaded yet.
                 const newNode = DQNode.create({ 
                     id: self.getNextId().toString(), 
                     sharedItem: sharedItemId,
@@ -128,16 +119,7 @@ export const DQRoot = types.model("DQRoot", {
                 });
                 self.nodes.put(newNode);
             }
-          });      
-        }, { name: "sync diagram and shared model" });
+        });      
     }
+}));
 
-    function beforeDestroy() {
-       autorunDisposer?.();
-    }
-
-    return {
-        afterCreate,
-        beforeDestroy
-    };
-});

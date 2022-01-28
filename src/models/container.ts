@@ -33,6 +33,10 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
   const diagramRecorder = createUndoRecorder(diagram, (entry) => {
     console.log("Undoable Diagram Action", entry);
   }, false, { 
+    // This is a list of shared models key'd based on where they are mounted
+    // in the tree. The function is run whenever there are changes within 
+    // this path. The function should only run after all changes have been
+    // made to the tree.
     "/sharedModel/": (containerActionId, call) => {
       // Note: the environment of the call will be undefined because the undoRecorder cleared 
       // it out before it calling this function
@@ -51,7 +55,19 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
         sendSnapshotToSharedModel(diagram, snapshot);
       }
       
-      // actually need to do the sync here like: diagram.sharedModelSync(containerActionId)
+      // sync the updates that were just applied to the shared model
+      // TODO: figure out how undo will be handled here.  We are calling an action
+      // from a middleware that just finished the action. Will it start a new top
+      // level action? Will it be allowed? Will it cause a inifite loop?
+      // what about other middleware that might be added to tree will this approach
+      // break that?
+      // Because of all these questions it might be better to run this sync in
+      // a setTimeout callback so it is part of a different stack, and in that case
+      // we would pass in the containerActionId.
+      // In theory it shouldn't cause a loop because the synSharedModelWithTileModel
+      // shouldn't modify the sharedModel, so it shouldn't come back to this 
+      // callback.
+      diagram.syncSharedModelWithTileModel();
     } 
   } );
 
@@ -69,7 +85,9 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
         sendSnapshotToSharedModel(list, snapshot);
       }
 
-      // actually need to do the sync here like: list.sharedModelSync(containerActionId)
+      // sync updates that were just applied to the shared model
+      // TODO: see the comment in diagram code above for concerns for this
+      list.syncSharedModelWithTileModel();
     }
   });
 
