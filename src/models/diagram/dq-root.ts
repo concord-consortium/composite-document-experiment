@@ -77,13 +77,13 @@ export const DQRoot = types.model("DQRoot", {
     // a new shared model snapshot
     // TODO: move this to a piece of shared code, that adds support for
     // mounting multiple shared models into the tile tree
-    applySharedModelSnapshotFromContainer(snapshot: any) {
+    applySharedModelSnapshotFromContainer(containerActionId: string, snapshot: any) {
         const tileSnapshot = JSON.parse(JSON.stringify(getSnapshot(self)));
         tileSnapshot.sharedModel = snapshot;
         applySnapshot(self, tileSnapshot);
     },
 
-    syncSharedModelWithTileModel() {
+    syncSharedModelWithTileModel(containerActionId: string) {
         // First clean up any nodes that reference invalid (removed) shared items.
         // See notes.md for while using onInvalidated didn't work for doing this
         self.nodes.forEach(node => {

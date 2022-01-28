@@ -1,4 +1,4 @@
-import { types, destroy } from "mobx-state-tree";
+import { types, destroy, applySnapshot } from "mobx-state-tree";
 
 export const SharedItem = types.model("SharedItem", {
     id: types.identifier,
@@ -39,5 +39,8 @@ export const SharedModel = types.model("SharedModel", {
         const nodeToRemove = self.allItems.get(itemId);
         // self.nodes.delete(nodeId);
         destroy(nodeToRemove);
+    },
+    applySnapshotFromTile(containerActionId: string, snapshot: any) {
+        applySnapshot(self, snapshot);
     }
 }));

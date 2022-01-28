@@ -1,6 +1,6 @@
 // This model keeps the documents in sync
 
-import { applySnapshot, getSnapshot } from "mobx-state-tree";
+import { getSnapshot } from "mobx-state-tree";
 import { DQRoot } from "./diagram/dq-root";
 import { ItemList } from "./item-list/item-list";
 import { SharedModel } from "./shared-model/shared-model";
@@ -40,7 +40,7 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
     "/sharedModel/": (containerActionId, call) => {
       // Note: the environment of the call will be undefined because the undoRecorder cleared 
       // it out before it calling this function
-      console.log("captured diagram sharedModel changes in containerActionId, action:", containerActionId, call);
+      console.log("captured diagram sharedModel changes", {containerActionId, action: call});
 
       // What is tricky is that this is being called when the snapshot is applied by the
       // sharedModel syncing code "sendSnapshotToSharedMode". In that case we want to do
@@ -52,7 +52,7 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
         // TODO: figure out if we should be recording this special action in the undo
         // stack
         const snapshot = getSnapshot(diagram.sharedModel);      
-        sendSnapshotToSharedModel(diagram, snapshot);
+        sendSnapshotToSharedModel(containerActionId, diagram, snapshot);
       }
       
       // sync the updates that were just applied to the shared model
@@ -67,7 +67,7 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
       // In theory it shouldn't cause a loop because the synSharedModelWithTileModel
       // shouldn't modify the sharedModel, so it shouldn't come back to this 
       // callback.
-      diagram.syncSharedModelWithTileModel();
+      diagram.syncSharedModelWithTileModel(containerActionId);
     } 
   } );
 
@@ -78,16 +78,16 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
     "/sharedModel/": (containerActionId, call) => { 
       // Note: the environment of the call will be undefined because the undoRecorder cleared 
       // it out before it calling this function
-      console.log("captured list sharedModel changes in containerActionId, action:", containerActionId, call);
+      console.log("captured list sharedModel changes", {containerActionId, action: call});
           
       if (call.name !== "applySharedModelSnapshotFromContainer") {
         const snapshot = getSnapshot(list.sharedModel);      
-        sendSnapshotToSharedModel(list, snapshot);
+        sendSnapshotToSharedModel(containerActionId, list, snapshot);
       }
 
       // sync updates that were just applied to the shared model
       // TODO: see the comment in diagram code above for concerns for this
-      list.syncSharedModelWithTileModel();
+      list.syncSharedModelWithTileModel(containerActionId);
     }
   });
 
@@ -140,14 +140,14 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
 
   const tiles = {diagram, list};
 
-  const sendSnapshotToSharedModel = (source: any, snapshot: any) => {
-    applySnapshot(sharedModel, snapshot);
+  const sendSnapshotToSharedModel = (containerActionId: string, source: any, snapshot: any) => {
+    sharedModel.applySnapshotFromTile(containerActionId, snapshot);
     for (const tile of Object.entries(tiles)) {
         if (tile[1] === source) continue;
 
         console.log(`repeating changes to ${tile[0]}`, snapshot);
 
-        tile[1].applySharedModelSnapshotFromContainer(snapshot);
+        tile[1].applySharedModelSnapshotFromContainer(containerActionId, snapshot);
     }
   };
 

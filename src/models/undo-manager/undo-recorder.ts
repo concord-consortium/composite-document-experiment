@@ -47,6 +47,23 @@ export const createUndoRecorder = (targetStore: IAnyStateTreeNode, onRecorded: (
             // Initialize how we record the shared model changes
             sharedModelPaths.forEach((path) => sharedModelModifications[path] = 0);
 
+            let containerActionId;
+
+            // FIXME: this is a bit of a hack. We are looking for specific actions
+            // which we know include a containerActionId as their first argument
+            // this is so we can link all of the changes with this same containerActionId
+            // I can't think of a better way so far, but perhaps the actual applying of
+            // snapshots could be done by a function in this middleware itself
+            // that way it would know the containerActionId that should be used without
+            // having to hack into the action arguments. 
+            if (call.name === "applySnapshotFromTile" || 
+                call.name === "applySharedModelSnapshotFromContainer" ||
+                call.name === "syncSharedModelWithTileModel") {
+                containerActionId = call.args[0];
+            } else {
+               containerActionId = uuidv4();
+            }
+
             const recorder = recordPatches(
                 call.tree,
                 (_patch, _inversePatch, actionContext) => {
@@ -93,7 +110,7 @@ export const createUndoRecorder = (targetStore: IAnyStateTreeNode, onRecorded: (
             call.env = {
                 recorder,
                 sharedModelModifications,
-                containerActionId: uuidv4()
+                containerActionId
             };
         },
         onFinish(call, error) {

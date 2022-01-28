@@ -58,13 +58,13 @@ export const ItemList = types.model("ItemList", {
     // a new shared model snapshot
     // TODO: move this to a piece of shared code, that adds support for
     // mounting multiple shared models into the tile tree
-    applySharedModelSnapshotFromContainer(snapshot: any) {
+    applySharedModelSnapshotFromContainer(containerActionId: string, snapshot: any) {
         const tileSnapshot = JSON.parse(JSON.stringify(getSnapshot(self)));
         tileSnapshot.sharedModel = snapshot;
         applySnapshot(self, tileSnapshot);
     },
 
-    syncSharedModelWithTileModel() {
+    syncSharedModelWithTileModel(containerActionId: string) {
         // First cleanup any invalid references this can happen when a item is deleted
         self.allItems.forEach(itemListItem => {
             // If the sharedItem is not valid destroy the list item
