@@ -63,6 +63,10 @@ two cases:
 - the shared model has been loaded and an item is actually deleted most likely by 
 another tile.  
 
+The description below is outdated, the autorun block has been replaced with a special
+action defined on the tile `syncSharedModelWithTileModel` which is called by the 
+undoRecorder middleware. 
+
 The current code hasn't dealt with loading and saving yet, so the code doesn't provide
 an example of this yet. It will need to be handled in the autorun code that is keeping
 things in sync. It should be able to know if the shared model is loaded yet or not
@@ -76,7 +80,41 @@ any rendering. Or each place that has a reference could be wrapped in `tryRefere
 
 # Handling Undo
 
-Current plan:
+## Recording undo-able changes
+There is a undoRecorder middleware added to the 2 tile trees and the shared model tree.
+This middleware is based on the MST undo manager middleware. It uses the 
+`createActionTrackingMiddleware2` MST function to make a middleware which automatically
+tracks synchronous and asynchronous (flow) actions. 
+
+This MST function also adds support for a shared `env` or context that child actions
+can see the parents actions value. The undoRecorder (and original MST undo manager) use
+this to only record one entry for the top level action. It uses the `recordPatches` to
+record all of the patches that are applied during action or its child actions.
+
+To support shared models, the undoRecorder is configured with the list of paths where
+the shared models are mounted in the tile's tree. Changes in this part of the tree are
+not included in the patches of the undo entry.
+
+When the undoRecorder detects changes in the shared model part of the tree it calls
+a passed in function which is used to sync these changes with the tile's model and 
+also with the real shared model.
+
+All recorded entries include a containerActionId. This id should be shared by all
+changes that are result of an initial change in a tile. For example when a new node
+is added, there are changes in the sharedModel, the diagram model, and the list model.
+All of these changes are recorded by independent undoRecorder middlewares but the 
+containerActionId is passed around so that all entries share it. 
+
+TODO: find a way to document the complex flow that makes this all work. A sequence
+diagram might help. Also coming up with some better names would be useful too.
+
+## Undoing a change
+Previous plan for applying undo's is below. This was before I realized the autorun approach for tanslating
+shared model changes into the tile model wouldn't work. The autorun code has now 
+been removed, and it is run by the middleware now. This might simplify the steps 
+below.
+
+Outdated plan:
 - add a pause option in the autorun that is sync/translating sharedModel <-> tileModel
 - when the container does an undo the tile pauses this autorun
 - the container sends the tile's changeset
@@ -91,8 +129,7 @@ get a filtered version of the sharedModel that is used by the tile.
 - the container tells the tile to re-enable the autorun, and re-sync/translate its 
   tree with the shared model
 
-
-Things to note:
+Outdated things to note:
 - we need a better name for the sync/translating autorun code because it will be a
 key part of using shared models.
 - the tile UI needs to handle the case where sharedModel references are invalid. It
@@ -114,27 +151,3 @@ experiment with this to see how it works in practice.
 - this same approach can probably be used when reloading the document, however in that
 case it might make sense to lock some parts of document until they are are fully
 loaded.
-
-New Issues figured out:
-
-In order to record the actions under a single ID whenever the sharedModel is changed
-by the tile the id of the main action that triggered this needs to be passed through.
-And the opposite is true too, since a change in the sharedModel might trigger a change
-additions or deletions in the tile model.
-
-When these changes happen because of a sync of the shared model it is possible to 
-record this. The global action will be sent down, and the action that makes the
-change can receive this as a parameter. The undo recording middleware can see this 
-param and record it.
-
-When the changes happen because a tile model action changes its copy of the shared
-model, I don't know an easy way to record this id as well as syncing the changes.
-Currently the sync in this directly happens because of an autorun that gets
-triggered by the changes made by the tile model action. As far as I know this
-autorun happens after the main action is finished, so it won't have access to the
-id. The manual solution to this is require tile authors to run an sync process
-each time they change the shared model. 
-
-The undo middleware is picking up these changes to the tile's copy of the shared model.
-So it could track them and run the sync when the action is done. This seems like
-the best approach based on what we've got right now.
