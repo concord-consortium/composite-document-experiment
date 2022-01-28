@@ -1,4 +1,4 @@
-import { destroy, Instance, isValidReference, tryReference, types } from "mobx-state-tree";
+import { applySnapshot, destroy, getSnapshot, Instance, isValidReference, tryReference, types } from "mobx-state-tree";
 import { SharedItem, SharedModel } from "../shared-model/shared-model";
 import { autorun, IReactionDisposer } from "mobx";
 
@@ -53,6 +53,16 @@ export const ItemList = types.model("ItemList", {
             return;
         }
         destroy(foundItem);
+    },
+
+    // Special action called by the framework when the container sends
+    // a new shared model snapshot
+    // TODO: move this to a piece of shared code, that adds support for
+    // mounting multiple shared models into the tile tree
+    applySharedModelSnapshotFromContainer(snapshot: any) {
+        const tileSnapshot = JSON.parse(JSON.stringify(getSnapshot(self)));
+        tileSnapshot.sharedModel = snapshot;
+        applySnapshot(self, tileSnapshot);
     }
 }))
 .actions(self => {

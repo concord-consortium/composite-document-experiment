@@ -1,4 +1,4 @@
-import { types, destroy, isValidReference } from "mobx-state-tree";
+import { types, destroy, isValidReference, getSnapshot, applySnapshot } from "mobx-state-tree";
 import { autorun, IReactionDisposer } from "mobx";
 import { Elements } from "react-flow-renderer/nocss";
 import { SharedModel } from "../shared-model/shared-model";
@@ -73,6 +73,17 @@ export const DQRoot = types.model("DQRoot", {
         }
         destroy(nodeToRemove);
     },
+
+    // Special action called by the framework when the container sends
+    // a new shared model snapshot
+    // TODO: move this to a piece of shared code, that adds support for
+    // mounting multiple shared models into the tile tree
+    applySharedModelSnapshotFromContainer(snapshot: any) {
+        const tileSnapshot = JSON.parse(JSON.stringify(getSnapshot(self)));
+        tileSnapshot.sharedModel = snapshot;
+        applySnapshot(self, tileSnapshot);
+    },
+
 }))
 .actions(self => {
     let autorunDisposer: IReactionDisposer | undefined;

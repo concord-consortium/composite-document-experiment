@@ -1,10 +1,10 @@
 // This model keeps the documents in sync
 
-import { applySnapshot, getSnapshot, onAction } from "mobx-state-tree";
+import { applySnapshot, getSnapshot } from "mobx-state-tree";
 import { DQRoot } from "./diagram/dq-root";
 import { ItemList } from "./item-list/item-list";
 import { SharedModel } from "./shared-model/shared-model";
-import { createUndoRecorder } from "./undo-manager/undo-manager";
+import { createUndoRecorder } from "./undo-manager/undo-recorder";
 
 export const Container = ({initialDiagram, initialItemList, initialSharedModel}: any) => {
   
@@ -31,17 +31,51 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const diagramRecorder = createUndoRecorder(diagram, (entry) => {
-    console.log("Diagram Action", entry);
-  }, false, /\/sharedModel\/.*/);
+    console.log("Undoable Diagram Action", entry);
+  }, false, { 
+    "/sharedModel/": (containerActionId, call) => {
+      // Note: the environment of the call will be undefined because the undoRecorder cleared 
+      // it out before it calling this function
+      console.log("captured diagram sharedModel changes in containerActionId, action:", containerActionId, call);
+
+      // What is tricky is that this is being called when the snapshot is applied by the
+      // sharedModel syncing code "sendSnapshotToSharedMode". In that case we want to do
+      // the internal shared model sync, but we don't want to resend the snapshot to the 
+      // shared model. So the current approach is to look for the specific action that
+      // is applying this snapshot to the tile tree. 
+      if (call.name !== "applySharedModelSnapshotFromContainer") {
+
+        // TODO: figure out if we should be recording this special action in the undo
+        // stack
+        const snapshot = getSnapshot(diagram.sharedModel);      
+        sendSnapshotToSharedModel(diagram, snapshot);
+      }
+      
+      // actually need to do the sync here like: diagram.sharedModelSync(containerActionId)
+    } 
+  } );
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const listRecorder = createUndoRecorder(list, (entry) => {
-    console.log("List Action", entry);
-  }, false, /\/sharedModel\/.*/);
+    console.log("Undoable List Action", entry);
+  }, false, { 
+    "/sharedModel/": (containerActionId, call) => { 
+      // Note: the environment of the call will be undefined because the undoRecorder cleared 
+      // it out before it calling this function
+      console.log("captured list sharedModel changes in containerActionId, action:", containerActionId, call);
+          
+      if (call.name !== "applySharedModelSnapshotFromContainer") {
+        const snapshot = getSnapshot(list.sharedModel);      
+        sendSnapshotToSharedModel(list, snapshot);
+      }
+
+      // actually need to do the sync here like: list.sharedModelSync(containerActionId)
+    }
+  });
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const sharedModelRecorder = createUndoRecorder(sharedModel, (entry) => {
-    console.log("Shared Model Action", entry);
+    console.log("Undoable Shared Model Action", entry);
   }, false, undefined);
 
   /*
@@ -95,49 +129,9 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
 
         console.log(`repeating changes to ${tile[0]}`, snapshot);
 
-        const tileSnapshot = JSON.parse(JSON.stringify(getSnapshot(tile[1])));
-        tileSnapshot.sharedModel = snapshot;
-        console.log("applying snapshot", tileSnapshot);
-        applySnapshot(tile[1], tileSnapshot);
+        tile[1].applySharedModelSnapshotFromContainer(snapshot);
     }
   };
-
-  /**
-   * onAction is used in an attempt to avoid infinite loops. It seems that
-   * the applySnapshot above does not trigger an onAction event.
-   * 
-   * This onAction has to be added to the root diagram because only top 
-   * level actions fire this event. Any actions called by the initial
-   * action are ignored and treated as part of the first action.  
-   * The UI of our tiles always call actions at the top level such as
-   * DQRoot or ItemList.
-   * 
-   * Because of this the current approach is un-optimized. It means that 
-   * changes to the diagram which don't change the shared model will trigger 
-   * shared model synchronization.
-   * 
-   * A solution is for the tile to maintain the shared Model
-   * in its own tree. But that means that references can't be used.
-   *
-   * Another possibility is using a middleware which could capture just 
-   * actions on the shared model. However a developer might use a top
-   * level action to modify the shared model directly, so we'd miss this
-   * change. 
-   * 
-   * It seems the best approach is to use onSnapshot instead and then we
-   * deal with the infinite loop problem by tracking the last state we
-   * sent. 
-   */
-  onAction(diagram, (call) => {
-    const snapshot = getSnapshot(diagram.sharedModel);
-    sendSnapshotToSharedModel(diagram, snapshot);
-  }, true);
-
-  onAction(list, (call) => {
-    const snapshot = getSnapshot(list.sharedModel);
-    sendSnapshotToSharedModel(list, snapshot);
-  }, true);
-
 
   return {diagram, list, sharedModel};
 };
