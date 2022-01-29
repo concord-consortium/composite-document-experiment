@@ -109,10 +109,10 @@ TODO: find a way to document the complex flow that makes this all work. A sequen
 diagram might help. Also coming up with some better names would be useful too.
 
 ## Undoing a change
-Previous plan for applying undo's is below. This was before I realized the autorun approach for tanslating
-shared model changes into the tile model wouldn't work. The autorun code has now 
-been removed, and it is run by the middleware now. This might simplify the steps 
-below.
+Previous plan for applying undo's is below. This was before I realized the autorun 
+approach for translating shared model changes into the tile model wouldn't work. The 
+autorun code has now been removed, and it is run by the middleware now. This might 
+simplify the steps below.
 
 Outdated plan:
 - add a pause option in the autorun that is sync/translating sharedModel <-> tileModel
