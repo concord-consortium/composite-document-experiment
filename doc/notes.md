@@ -108,6 +108,12 @@ containerActionId is passed around so that all entries share it.
 TODO: find a way to document the complex flow that makes this all work. A sequence
 diagram might help. Also coming up with some better names would be useful too.
 
+TODO: in addition to the containerActionId, it would be useful if we recorded 
+name of the initial action and its tileId in the undo history. This can help with
+debugging, and could also be used in the UI to show the user the undo stack. In the
+current implementation if a tile action just changes the shared model, the only
+action name is just "applySnapshotFromTile" which isn't very useful.
+
 ## Undoing a change
 Previous plan for applying undo's is below. This was before I realized the autorun 
 approach for translating shared model changes into the tile model wouldn't work. The 

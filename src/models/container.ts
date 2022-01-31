@@ -5,12 +5,15 @@ import { DQRoot } from "./diagram/dq-root";
 import { ItemList } from "./item-list/item-list";
 import { SharedModel } from "./shared-model/shared-model";
 import { createUndoRecorder } from "./undo-manager/undo-recorder";
+import { TileUndoEntry, UndoStore } from "./undo-manager/undo-store";
 
 export const Container = ({initialDiagram, initialItemList, initialSharedModel}: any) => {
   
   const diagram = DQRoot.create(initialDiagram);
   const list = ItemList.create(initialItemList);
   const sharedModel = SharedModel.create(initialSharedModel);
+
+  const undoStore = UndoStore.create();
 
   // const diagramUndoManager = UndoManager.create(undefined, {
   //   // for now we are monitoring the whole diagram tree
@@ -32,6 +35,13 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const diagramRecorder = createUndoRecorder(diagram, (entry) => {
     console.log("Undoable Diagram Action", entry);
+    undoStore.addUndoEntry(entry.containerActionId, 
+       TileUndoEntry.create({
+         tileId: "diagram", 
+         actionName: entry.actionName, 
+         patches: entry.patches, 
+         inversePatches: entry.inversePatches})
+    );
   }, false, { 
     // This is a list of shared models key'd based on where they are mounted
     // in the tree. The function is run whenever there are changes within 
@@ -74,6 +84,14 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const listRecorder = createUndoRecorder(list, (entry) => {
     console.log("Undoable List Action", entry);
+    undoStore.addUndoEntry(entry.containerActionId, 
+      TileUndoEntry.create({
+        tileId: "list", 
+        actionName: entry.actionName, 
+        patches: entry.patches, 
+        inversePatches: entry.inversePatches})
+    );
+
   }, false, { 
     "/sharedModel/": (containerActionId, call) => { 
       // Note: the environment of the call will be undefined because the undoRecorder cleared 
@@ -94,6 +112,14 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const sharedModelRecorder = createUndoRecorder(sharedModel, (entry) => {
     console.log("Undoable Shared Model Action", entry);
+    undoStore.addUndoEntry(entry.containerActionId, 
+      TileUndoEntry.create({
+        tileId: "sharedModel", 
+        actionName: entry.actionName, 
+        patches: entry.patches, 
+        inversePatches: entry.inversePatches})
+    );
+
   }, false, undefined);
 
   /*
@@ -151,5 +177,5 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
     }
   };
 
-  return {diagram, list, sharedModel};
+  return {diagram, list, sharedModel, undoStore};
 };
