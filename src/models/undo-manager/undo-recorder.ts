@@ -67,7 +67,9 @@ export const createUndoRecorder = (targetStore: IAnyStateTreeNode, onRecorded: (
             const recorder = recordPatches(
                 call.tree,
                 (_patch, _inversePatch, actionContext) => {
-                    if (recordingDisabled) {
+                    // We skip recording when we are applying patches from the undo store
+                    // these could be undo or redo patches
+                    if (recordingDisabled || call.name === "applyPatchesFromUndo") {
                         return false;
                     }
 

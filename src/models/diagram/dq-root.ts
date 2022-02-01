@@ -1,4 +1,4 @@
-import { types, destroy, isValidReference, getSnapshot, applySnapshot } from "mobx-state-tree";
+import { types, destroy, isValidReference, getSnapshot, applySnapshot, IJsonPatch, applyPatch } from "mobx-state-tree";
 import { Elements } from "react-flow-renderer/nocss";
 import { SharedModel } from "../shared-model/shared-model";
 import { DQNode } from "./dq-node";
@@ -86,6 +86,10 @@ export const DQRoot = types.model("DQRoot", {
         applySnapshot(self, tileSnapshot);
     },
 
+    applyPatchesFromUndo(patchesToApply: readonly IJsonPatch[]) {
+        applyPatch(self, patchesToApply);
+    },
+
     startApplyingContainerPatches() {
         self.applyingContainerPatches = true;
     },
@@ -95,7 +99,7 @@ export const DQRoot = types.model("DQRoot", {
         // FIXME: what container action id should I use here
         this.syncSharedModelWithTileModel("fake containerActionId");
     },
-    
+
     syncSharedModelWithTileModel(containerActionId: string) {
         // If we are applying container patches, then we ignore any sync actions
         // otherwise the user might make a change such as changing the name of a

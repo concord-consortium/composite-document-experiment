@@ -1,6 +1,6 @@
 // This model keeps the documents in sync
 
-import { applyPatch, getSnapshot, IJsonPatch, Instance } from "mobx-state-tree";
+import { getSnapshot, IJsonPatch, Instance } from "mobx-state-tree";
 import { DQRoot } from "./diagram/dq-root";
 import { ItemList } from "./item-list/item-list";
 import { SharedModel } from "./shared-model/shared-model";
@@ -20,7 +20,8 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
   const sendPatchesToTileOrShared = (tileId: string, patchesToApply: readonly IJsonPatch[]) => {
     const component = components[tileId];
     // If this was an iframe we'd send it as a message
-    applyPatch(component, patchesToApply);
+    component.applyPatchesFromUndo(patchesToApply);
+
     // FIXME: We are manually syncing the shared model here with the tiles
     // it'd be better if we could just apply the patch and the system would repeat it to the 
     // tiles. 
@@ -56,23 +57,6 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
     startApplyingContainerPatches,
     finishApplyingContainerPatches
   });
-
-  // const diagramUndoManager = UndoManager.create(undefined, {
-  //   // for now we are monitoring the whole diagram tree
-  //   targetStore: diagram,
-  //   // Filter out patches that are modifying the shared model 
-  //   // Having the sharedModel embedded in the tree will also be an issue with any serialization. 
-  //   // If we use onSnapshot to serialize it will pick up the shared model.
-  //   // Maybe we can put the shared model as a sibling of the main tile model.
-  //   // However, this would mean the actions could not modify the shared model directly.
-  //   // But it is already the case that we are using actions on the shared model to modify it.
-  //   // So another approach would be to wrap all actions on the shared model so they
-  //   // disable undo. This would make it harder to write new shared models though.
-  //   excludePath: /\/sharedModel\/.*/
-  // });
-
-  // right now we aren't doing anything with this, but a tile would use this
-  // diagramRecorder instance if it wanted to avoid recording some actions 
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const diagramRecorder = createUndoRecorder(diagram, (entry) => {

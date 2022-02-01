@@ -1,4 +1,4 @@
-import { applySnapshot, destroy, getSnapshot, Instance, isValidReference, tryReference, types } from "mobx-state-tree";
+import { applyPatch, applySnapshot, destroy, getSnapshot, IJsonPatch, Instance, isValidReference, tryReference, types } from "mobx-state-tree";
 import { SharedItem, SharedModel } from "../shared-model/shared-model";
 
 export const ItemListItem = types.model("ItemListItem", {
@@ -65,6 +65,10 @@ export const ItemList = types.model("ItemList", {
         const tileSnapshot = JSON.parse(JSON.stringify(getSnapshot(self)));
         tileSnapshot.sharedModel = snapshot;
         applySnapshot(self, tileSnapshot);
+    },
+
+    applyPatchesFromUndo(patchesToApply: readonly IJsonPatch[]) {
+        applyPatch(self, patchesToApply);
     },
 
     startApplyingContainerPatches() {

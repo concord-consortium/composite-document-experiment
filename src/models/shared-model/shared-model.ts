@@ -1,4 +1,4 @@
-import { types, destroy, applySnapshot } from "mobx-state-tree";
+import { types, destroy, applySnapshot, IJsonPatch, applyPatch } from "mobx-state-tree";
 
 export const SharedItem = types.model("SharedItem", {
     id: types.identifier,
@@ -42,5 +42,8 @@ export const SharedModel = types.model("SharedModel", {
     },
     applySnapshotFromTile(containerActionId: string, snapshot: any) {
         applySnapshot(self, snapshot);
-    }
+    },
+    applyPatchesFromUndo(patchesToApply: readonly IJsonPatch[]) {
+        applyPatch(self, patchesToApply);
+    },
 }));
