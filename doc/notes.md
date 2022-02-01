@@ -115,12 +115,49 @@ current implementation if a tile action just changes the shared model, the only
 action name is just "applySnapshotFromTile" which isn't very useful.
 
 ## Undoing a change
+
+Plan with sync/translating happening in undo-recorder middleware. 
+- the container tells all tiles to pause their syncing code. This could be optimized to
+only stop the tiles affected by the undo.
+- the container sends the undo patch to each tile
+- when tile receives a patch to apply, the patch shouldn't be undoable itself. Because
+the syncing is paused the patch shouldn't trigger a sync of the shared model.
+- the container sends the sharedModel patch
+- the sharedModel is synced with all of the tiles
+- TODO: the tile confirms that the sharedModel has been sync'd: this is so the internal sync 
+doesn't happen too soon. There might be multiple sharedModels used by a tile. The sharedModel
+API might not be a simple clone of the sharedModel, there might be a query involved to
+get a filtered version of the sharedModel that is used by the tile.
+- the container tells the tile to re-enable the syncing code, and do a "catch-up" sync. 
+
+Is it really necessary to pause all tile syncing code? Could we just not 
+sync when sending the tile patches? The issue is that the sharedModel will be sent to
+the tile in a separate message. It seems best if we don't require the tile patches to 
+happen before the shared model patches. And there might be multiple shared models 
+each triggering their own sync.  You'd think it would work if we do this:
+- don't sync when a patch is received
+- don't sync when the sharedModel snapshot is received
+- the container tells the tile to an explicit sync after it has sent all patches
+
+However the user might do some actions while this is happening, and these actions
+could cause a sync to happen. For example the user might change the name of a node.
+This change would be applied directly to cached shared model of the tile. Then 
+the whole cached shared model would be sync'd with the tile model. If the undo
+patches of the shared model had been applied already but not the tile model patches,
+and the shared model now had a new node in it, this new node would be created by
+the syncing code. Then the tile model patch would get applied which would create
+a another new node. So now there would be two new nodes created pointing at the 
+same shared model node. 
+
+So the tile level disabling of sync is necessary to make sure all patches have
+been applied before we try to sync up any inconsistencies. 
+
 Previous plan for applying undo's is below. This was before I realized the autorun 
 approach for translating shared model changes into the tile model wouldn't work. The 
 autorun code has now been removed, and it is run by the middleware now. This might 
 simplify the steps below.
 
-Outdated plan:
+Outdated Autorun plan:
 - add a pause option in the autorun that is sync/translating sharedModel <-> tileModel
 - when the container does an undo the tile pauses this autorun
 - the container sends the tile's changeset

@@ -7,6 +7,9 @@ export const DQRoot = types.model("DQRoot", {
     nodes: types.map(DQNode),
     sharedModel: SharedModel
 })
+.volatile(self => ({
+    applyingContainerPatches: false
+}))
 .views(self => ({
     get reactFlowElements() {
         const elements: Elements = [];
@@ -83,7 +86,32 @@ export const DQRoot = types.model("DQRoot", {
         applySnapshot(self, tileSnapshot);
     },
 
+    startApplyingContainerPatches() {
+        self.applyingContainerPatches = true;
+    },
+
+    finishApplyingContainerPatches() {
+        self.applyingContainerPatches = false;
+        // FIXME: what container action id should I use here
+        this.syncSharedModelWithTileModel("fake containerActionId");
+    },
+    
     syncSharedModelWithTileModel(containerActionId: string) {
+        // If we are applying container patches, then we ignore any sync actions
+        // otherwise the user might make a change such as changing the name of a
+        // node while the patches are applied. When they do this the patch for 
+        // the shared model might have been applied first, and which if sync is
+        // enabled could create a new node in the diagram. Then the patch for the 
+        // diagram is applied which also creates a new node in the diagram. 
+        // Even if we just disable the sync when the shared model update is done
+        // from the patch, if the user makes a change, this would be a separate
+        // action would would trigger the sync. So if the user made this change
+        // at just the right time it would could result in duplicate nodes in the 
+        // diagram.
+        if (self.applyingContainerPatches) {
+            return;
+        }
+
         // First clean up any nodes that reference invalid (removed) shared items.
         // See notes.md for while using onInvalidated didn't work for doing this
         self.nodes.forEach(node => {

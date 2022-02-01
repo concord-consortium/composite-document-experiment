@@ -2,7 +2,8 @@ import {
     types,
     IJsonPatch,
     Instance,
-    getSnapshot
+    getSnapshot,
+    getEnv
 } from "mobx-state-tree";
 
 // I don't know if it is worth making this a MST model
@@ -80,11 +81,31 @@ export const UndoStore = types
             }
 
             const entryToUndo = self.history[self.undoIdx -1];
+            
+            // first disable shared model syncing in the model
+            entryToUndo.tileEntries.forEach(tileEntry => {
+                getEnv(self).startApplyingContainerPatches(tileEntry.tileId);
+            });
+
+            // apply the patches to all components
             entryToUndo.tileEntries.forEach(tileEntry => {
                 console.log("send tile entry to undo to the tile", getSnapshot(tileEntry));
-                // The tile should do something like:
-                // applyPatch(tileMode, tileEntry.inversePatches.slice().reverse())
+                // The tile should be able to just call applyPatch(tileModel, patches)
+                // FIXME: In an iframe system, this will be sent over postMessage
+                // Because this would be asynchronous this action should be a flow
+                // and it needs to wait for a confirmation from the tile or shared model
+                // that all of the patches have been applied and also any tile that is 
+                // working with the shared models have had time to update themselves
+                getEnv(self).sendPatchesToTileOrShared(tileEntry.tileId, tileEntry.inversePatches.slice().reverse());
             });
+
+            // finish the patch application
+            // Need to tell all of the tiles to re-enable the sync and run the sync
+            // to resync their tile models with any changes applied to the shared models
+            entryToUndo.tileEntries.forEach(tileEntry => {
+                getEnv(self).finishApplyingContainerPatches(tileEntry.tileId);
+            });
+
             self.undoIdx--;
         },
         redo() {

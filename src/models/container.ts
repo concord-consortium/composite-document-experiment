@@ -1,6 +1,6 @@
 // This model keeps the documents in sync
 
-import { getSnapshot } from "mobx-state-tree";
+import { applyPatch, getSnapshot, IJsonPatch, Instance } from "mobx-state-tree";
 import { DQRoot } from "./diagram/dq-root";
 import { ItemList } from "./item-list/item-list";
 import { SharedModel } from "./shared-model/shared-model";
@@ -13,7 +13,49 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
   const list = ItemList.create(initialItemList);
   const sharedModel = SharedModel.create(initialSharedModel);
 
-  const undoStore = UndoStore.create();
+  // TODO use patterns added to CLUE so we can refer to a single MST model type for all
+  // of the components
+  const components: Record<string, Instance<typeof DQRoot> | Instance<typeof ItemList> | Instance<typeof SharedModel>>
+    = {diagram, list, sharedModel};
+  const sendPatchesToTileOrShared = (tileId: string, patchesToApply: readonly IJsonPatch[]) => {
+    const component = components[tileId];
+    // If this was an iframe we'd send it as a message
+    applyPatch(component, patchesToApply);
+    // FIXME: We are manually syncing the shared model here with the tiles
+    // it'd be better if we could just apply the patch and the system would repeat it to the 
+    // tiles. 
+    if (component === sharedModel) {
+      sendSharedModelSnapshotToTiles("fake action id", null, getSnapshot(sharedModel));
+    }
+  };
+
+  // TODO: improve this, it crosses many boundaries
+  const startApplyingContainerPatches = (tileId: string, value: boolean) => {
+    // skip sharedModels because they don't sync with other shared models
+    if (tileId === "sharedModel") {
+      return;
+    }
+    const component = components[tileId];
+
+    (component as any).startApplyingContainerPatches();
+  };
+
+  // TODO: improve this, it crosses many boundaries
+  const finishApplyingContainerPatches = (tileId: string, value: boolean) => {
+    // skip sharedModels because they don't sync with other shared models
+    if (tileId === "sharedModel") {
+      return;
+    }
+    const component = components[tileId];
+
+    (component as any).finishApplyingContainerPatches();
+  };
+
+  const undoStore = UndoStore.create({}, {
+    sendPatchesToTileOrShared,
+    startApplyingContainerPatches,
+    finishApplyingContainerPatches
+  });
 
   // const diagramUndoManager = UndoManager.create(undefined, {
   //   // for now we are monitoring the whole diagram tree
@@ -168,12 +210,16 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
 
   const sendSnapshotToSharedModel = (containerActionId: string, source: any, snapshot: any) => {
     sharedModel.applySnapshotFromTile(containerActionId, snapshot);
+    sendSharedModelSnapshotToTiles(containerActionId, source, snapshot);
+  };
+
+  const sendSharedModelSnapshotToTiles = (containerActionId: string, source: any, snapshot: any, syncAfterApplying = true) => {
     for (const tile of Object.entries(tiles)) {
-        if (tile[1] === source) continue;
+      if (tile[1] === source) continue;
 
-        console.log(`repeating changes to ${tile[0]}`, snapshot);
+      console.log(`repeating changes to ${tile[0]}`, snapshot);
 
-        tile[1].applySharedModelSnapshotFromContainer(containerActionId, snapshot);
+      tile[1].applySharedModelSnapshotFromContainer(containerActionId, snapshot);
     }
   };
 
