@@ -96,7 +96,28 @@ export const DQRoot = types.model("DQRoot", {
 
     finishApplyingContainerPatches() {
         self.applyingContainerPatches = false;
-        // FIXME: what container action id should I use here
+        // FIXME: what container action id should I use here?
+        // If all of the patches applied with no intermediate changes
+        // there should be nothing to sync, so this action id would not show
+        // up anywhere
+        // If the user made a change in the shared model like deleting
+        // a node while the patches were applied this would be out of sync
+        // So that deleted no change would get applied here.
+        // We could try to record the action id of any intermediate actions
+        // but if multiple actions happened all of their changes would get 
+        // merged together.
+        // I guess the best thing we could do is:
+        // - merge any actions that happened during the patch application into
+        //   a single action. So basically combine their patches.
+        // - use the id of that combined action here.
+        // If there were no intermediate actions, what should we do?
+        // - use a new UUID: it is most likely that no changes will be done 
+        //   by the sync. But just incase there are some we can give it an 
+        //   a valid ID. It almost would be better to throw an error here 
+        //   so we could track down the problem. Recording a new change would
+        //   basically break the undo stack. 
+        //   TODO: find a way to at least log to the console that this error
+        //   condition happened.
         this.syncSharedModelWithTileModel("fake containerActionId");
     },
 

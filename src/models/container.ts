@@ -22,7 +22,7 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
     // If this was an iframe we'd send it as a message
     component.applyPatchesFromUndo(patchesToApply);
 
-    // FIXME: We are manually syncing the shared model here with the tiles
+    // TODO: We are manually syncing the shared model here with the tiles
     // it'd be better if we could just apply the patch and the system would repeat it to the 
     // tiles. 
     if (component === sharedModel) {

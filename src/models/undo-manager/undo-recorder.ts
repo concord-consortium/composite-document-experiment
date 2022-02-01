@@ -4,7 +4,7 @@ import {
     IPatchRecorder,
     createActionTrackingMiddleware2, flow,
     addMiddleware,
-    addDisposer, isActionContextThisOrChildOf, IJsonPatch
+    addDisposer, isActionContextThisOrChildOf, IJsonPatch, IActionTrackingMiddleware2Call
 } from "mobx-state-tree";
 import { v4 as uuidv4 } from "uuid";
 
@@ -15,9 +15,15 @@ export interface RecordedEntry {
     inversePatches: ReadonlyArray<IJsonPatch>
 }
 
+interface CallEnv {
+    recorder: IPatchRecorder;
+    sharedModelModifications: SharedModelModifications;
+    containerActionId: string;
+}
+
 // A map of shared model paths to their update functions
-// FIXME: add a type for the call here
-export type SharedModelsConfig = Record<string, (containerActionId: string, call: any) => void>;
+type SharedModelChangeHandler = (containerActionId: string, call: IActionTrackingMiddleware2Call<CallEnv>) => void;
+export type SharedModelsConfig = Record<string, SharedModelChangeHandler>;
 type SharedModelModifications = Record<string, number>;
 
 // This seems to work better not being an MST model, it doesn't
@@ -26,13 +32,7 @@ export const createUndoRecorder = (targetStore: IAnyStateTreeNode, onRecorded: (
     includeHooks: boolean, sharedModelsConfig: SharedModelsConfig = {}) => {
     let recordingDisabled = 0;
 
-    interface Context {
-        recorder: IPatchRecorder;
-        sharedModelModifications: SharedModelModifications;
-        containerActionId: string;
-    }
-
-    const undoRedoMiddleware = createActionTrackingMiddleware2<Context>({
+    const undoRedoMiddleware = createActionTrackingMiddleware2<CallEnv>({
         filter(call) {
             if (call.env) {
                 // already recording
@@ -49,13 +49,19 @@ export const createUndoRecorder = (targetStore: IAnyStateTreeNode, onRecorded: (
 
             let containerActionId;
 
-            // FIXME: this is a bit of a hack. We are looking for specific actions
+            // TODO: this seems like a bit of a hack. We are looking for specific actions
             // which we know include a containerActionId as their first argument
             // this is so we can link all of the changes with this same containerActionId
-            // I can't think of a better way so far, but perhaps the actual applying of
-            // snapshots could be done by a function in this middleware itself
-            // that way it would know the containerActionId that should be used without
-            // having to hack into the action arguments. 
+            // I can't think of a better way so far. 
+            // If a function in this middleware could apply the snapshots and run the 
+            // syncing that would let us directly pass in the containerActionId. However
+            // we still need to record the changes in the undo history. So we still need
+            // want to be in this middleware. 
+            // Perhaps there is a way to use something like decorate to modify the
+            // call environment for an individual action call.
+            // I thought at one point I saw a way to construct a custom action without
+            // defining a method on the model. If that was possible we might be able to
+            // use it to pass in the containerActionId
             if (call.name === "applySnapshotFromTile" || 
                 call.name === "applySharedModelSnapshotFromContainer" ||
                 call.name === "syncSharedModelWithTileModel") {
@@ -182,7 +188,7 @@ export const createUndoRecorder = (targetStore: IAnyStateTreeNode, onRecorded: (
     //
     // TODO: however perhaps this setting is just for the initial action. So perhaps even
     // without this the creation of a model would be recorded by the recorder if it was
-    // a done in a child action. So we should do some experimenation with middleware
+    // a done in a child action. So we should do some experimentation with middleware
     // the recorder and hooks.
     const middlewareDisposer = addMiddleware(targetStore, undoRedoMiddleware, includeHooks);
 
