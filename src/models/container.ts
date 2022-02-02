@@ -45,6 +45,8 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
     (component as any).finishApplyingContainerPatches();
   };
 
+
+
   const undoStore = UndoStore.create({}, {
     sendPatchesToTileOrShared,
     startApplyingContainerPatches,
@@ -86,52 +88,9 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
     );
 
   }, false, undefined);
-
-  /*
-    The container takes a simple approach right now. It acts as a repeater of messages
-    sent by each tile. The message includes the tile's state of shared model. The
-    container only sends the message to the tiles that didn't send the message.
-
-    Right now the container is the one watching the tile trees with `onAction`
-    In a real scenario where the tiles are managing their own trees (sometimes in
-    an iframe) the tile would watch its own tree. See the first
-    onAction handler for more details about this.
-
-    This repeater approach avoids the simple infinite loop. However if there is a delay 
-    in the message passing then it can result some strange cases. Also if a tile
-    updated the shared model in response to a change made by a different tile 
-    there still could be an infinite loop. A simple example are tiles that are 
-    sharing numbers represented by strings. Perhaps one tile wants to always have
-    1 digit of precision "1.0" and the other wants "1.00". Whenever the number changes
-    the two tiles will just keep updating the same number again and again. 
-    I don't think there is much we can do to prevent this. But perhaps we could 
-    add some kind of loop detection code.
-
-    This approach also doesn't support shared models that have their own logic or 
-    reactions. I do not have a use case yet where the shared model needs it own
-    logic. An example would be a shared model that wants to keep its items sorted,
-    but that doesn't seem like a good case.
-
-    If we do have a good use case, this seems possible to handle, but it adds 
-    complexity. The shared model might need to send state back to the tile. So
-    to avoid the infinite loop problem both the shared model and the tile should
-    keep track of the last state they received and not resend if it matches. This
-    could be done with a hash to save memory. But if we want to also reduce the
-    amount of data shipped around a full copy is useful so then we can just send
-    diffs. 
-
-    Before we add that complexity we should see if there is a use case where the 
-    shared model needs to make its own changes. 
-    
-    Another version of this is if we want to support two tiles changing the state
-    at the same time. In this case we might need to send state back to the tile
-    immediately after the tile sent state because another tile modified it
-    while it was in transit. But again we don't have a good use case for this.
-  */
-
   
   // FIXME: syncAfterApplying is not used, perhaps we can get rid of this?
-  const sendSharedModelSnapshotToTiles = (containerActionId: string, sourceTileId: string, snapshot: any, syncAfterApplying = true) => {
+  const sendSharedModelSnapshotToTiles = (containerActionId: string, sourceTileId: string, snapshot: any) => {
     for (const tile of Object.entries(tiles)) {
       // FIXME: the list of tiles is right now not using ids just
       // the name of the tile
