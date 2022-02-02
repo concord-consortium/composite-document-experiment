@@ -1,5 +1,6 @@
-import { applyPatch, applySnapshot, destroy, getSnapshot, IJsonPatch, Instance, isValidReference, tryReference, types } from "mobx-state-tree";
+import { destroy, Instance, isValidReference, tryReference, types } from "mobx-state-tree";
 import { SharedItem, SharedModel } from "../shared-model/shared-model";
+import { Tile } from "../tile";
 
 export const ItemListItem = types.model("ItemListItem", {
     id: types.identifier,
@@ -22,13 +23,11 @@ export const ItemListItem = types.model("ItemListItem", {
     }
 }));
 
-export const ItemList = types.model("ItemList", {
+export const ItemList = Tile.named("ItemList")
+.props({
     sharedModel: SharedModel,
     allItems: types.array(ItemListItem)
 })
-.volatile(self => ({
-    applyingContainerPatches: false
-}))
 .views(self => ({
     getNextId() {
         let maxId = 0;
@@ -57,46 +56,7 @@ export const ItemList = types.model("ItemList", {
         destroy(foundItem);
     },
 
-    // Special action called by the framework when the container sends
-    // a new shared model snapshot
-    // TODO: move this to a piece of shared code, that adds support for
-    // mounting multiple shared models into the tile tree
-    applySharedModelSnapshotFromContainer(containerActionId: string, snapshot: any) {
-        const tileSnapshot = JSON.parse(JSON.stringify(getSnapshot(self)));
-        tileSnapshot.sharedModel = snapshot;
-        applySnapshot(self, tileSnapshot);
-    },
-
-    applyPatchesFromUndo(patchesToApply: readonly IJsonPatch[]) {
-        applyPatch(self, patchesToApply);
-    },
-
-    startApplyingContainerPatches() {
-        self.applyingContainerPatches = true;
-    },
-
-    finishApplyingContainerPatches() {
-        self.applyingContainerPatches = false;
-        // FIXME: what container action id should I use here
-        this.syncSharedModelWithTileModel("fake containerActionId");
-    },
-
-    syncSharedModelWithTileModel(containerActionId: string) {
-        // If we are applying container patches, then we ignore any sync actions
-        // otherwise the user might make a change such as changing the name of a
-        // node while the patches are applied. When they do this the patch for 
-        // the shared model might have been applied first, and which if sync is
-        // enabled could create a new node in the diagram. Then the patch for the 
-        // diagram is applied which also creates a new node in the diagram. 
-        // Even if we just disable the sync when the shared model update is done
-        // from the patch, if the user makes a change, this would be a separate
-        // action would would trigger the sync. So if the user made this change
-        // at just the right time it would could result in duplicate nodes in the 
-        // diagram.
-        if (self.applyingContainerPatches) {
-            return;
-        }
-
+    updateTileModel() {
         // First cleanup any invalid references this can happen when a item is deleted
         self.allItems.forEach(itemListItem => {
             // If the sharedItem is not valid destroy the list item
@@ -121,7 +81,12 @@ export const ItemList = types.model("ItemList", {
                 this.addItem(newItem);
             }
         });
-    }
+    },
 
+    afterCreate() {
+        self.addSharedModel(self.sharedModel);
+        self.setupUndoRecorder();
+    },
+    
 }));
 

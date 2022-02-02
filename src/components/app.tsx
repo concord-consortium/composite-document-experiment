@@ -23,6 +23,7 @@ const loadInitialState = () => {
       }
     },
     diagram: {
+      id: "diagram",
       sharedModel: {
         id: "1",
         allItems: {
@@ -42,6 +43,7 @@ const loadInitialState = () => {
       }
     },
     itemList: {
+      id: "itemList",
       sharedModel: {
         id: "1",
         allItems: {
@@ -101,7 +103,7 @@ export const App = () => {
   return (
     <div className="app">
       <Diagram dqRoot={trees.diagram} />
-      <ItemList itemList={trees.list} />
+      <ItemList itemList={trees.itemList} />
     </div>
   );
 };

@@ -4,19 +4,12 @@ import { getSnapshot, IJsonPatch, Instance } from "mobx-state-tree";
 import { DQRoot } from "./diagram/dq-root";
 import { ItemList } from "./item-list/item-list";
 import { SharedModel } from "./shared-model/shared-model";
+import { ContainerAPI } from "./tile";
 import { createUndoRecorder } from "./undo-manager/undo-recorder";
 import { TileUndoEntry, UndoStore } from "./undo-manager/undo-store";
 
 export const Container = ({initialDiagram, initialItemList, initialSharedModel}: any) => {
   
-  const diagram = DQRoot.create(initialDiagram);
-  const list = ItemList.create(initialItemList);
-  const sharedModel = SharedModel.create(initialSharedModel);
-
-  // TODO use patterns added to CLUE so we can refer to a single MST model type for all
-  // of the components
-  const components: Record<string, Instance<typeof DQRoot> | Instance<typeof ItemList> | Instance<typeof SharedModel>>
-    = {diagram, list, sharedModel};
   const sendPatchesToTileOrShared = (tileId: string, patchesToApply: readonly IJsonPatch[]) => {
     const component = components[tileId];
     // If this was an iframe we'd send it as a message
@@ -26,7 +19,7 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
     // it'd be better if we could just apply the patch and the system would repeat it to the 
     // tiles. 
     if (component === sharedModel) {
-      sendSharedModelSnapshotToTiles("fake action id", null, getSnapshot(sharedModel));
+      sendSharedModelSnapshotToTiles("fake action id", "", getSnapshot(sharedModel));
     }
   };
 
@@ -58,82 +51,28 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
     finishApplyingContainerPatches
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const diagramRecorder = createUndoRecorder(diagram, (entry) => {
-    console.log("Undoable Diagram Action", entry);
-    undoStore.addUndoEntry(entry.containerActionId, 
-       TileUndoEntry.create({
-         tileId: "diagram", 
-         actionName: entry.actionName, 
-         patches: entry.patches, 
-         inversePatches: entry.inversePatches})
-    );
-  }, false, { 
-    // This is a list of shared models key'd based on where they are mounted
-    // in the tree. The function is run whenever there are changes within 
-    // this path. The function should only run after all changes have been
-    // made to the tree.
-    "/sharedModel/": (containerActionId, call) => {
-      // Note: the environment of the call will be undefined because the undoRecorder cleared 
-      // it out before it calling this function
-      console.log("captured diagram sharedModel changes", {containerActionId, action: call});
+  const sendSnapshotToSharedModel = (containerActionId: string, tileId: string, snapshot: any) => {
+    // FIXME: the container should have a registry of sharedModels based on id
+    // the snapshot that is being sent should include an id that can be used to look up 
+    // the shared model
+    sharedModel.applySnapshotFromTile(containerActionId, snapshot);
+    sendSharedModelSnapshotToTiles(containerActionId, tileId, snapshot);
+  };
 
-      // What is tricky is that this is being called when the snapshot is applied by the
-      // sharedModel syncing code "sendSnapshotToSharedMode". In that case we want to do
-      // the internal shared model sync, but we don't want to resend the snapshot to the 
-      // shared model. So the current approach is to look for the specific action that
-      // is applying this snapshot to the tile tree. 
-      if (call.name !== "applySharedModelSnapshotFromContainer") {
+  const containerAPI: ContainerAPI = {
+    sendSnapshotToSharedModel
+  };
 
-        // TODO: figure out if we should be recording this special action in the undo
-        // stack
-        const snapshot = getSnapshot(diagram.sharedModel);      
-        sendSnapshotToSharedModel(containerActionId, diagram, snapshot);
-      }
-      
-      // sync the updates that were just applied to the shared model
-      // TODO: figure out how undo will be handled here.  We are calling an action
-      // from a middleware that just finished the action. Will it start a new top
-      // level action? Will it be allowed? Will it cause a inifite loop?
-      // what about other middleware that might be added to tree will this approach
-      // break that?
-      // Because of all these questions it might be better to run this sync in
-      // a setTimeout callback so it is part of a different stack, and in that case
-      // we would pass in the containerActionId.
-      // In theory it shouldn't cause a loop because the synSharedModelWithTileModel
-      // shouldn't modify the sharedModel, so it shouldn't come back to this 
-      // callback.
-      diagram.syncSharedModelWithTileModel(containerActionId);
-    } 
-  } );
+  const diagram = DQRoot.create(initialDiagram, {undoStore, containerAPI});
+  const itemList = ItemList.create(initialItemList, {undoStore, containerAPI});
+  const sharedModel = SharedModel.create(initialSharedModel);
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const listRecorder = createUndoRecorder(list, (entry) => {
-    console.log("Undoable List Action", entry);
-    undoStore.addUndoEntry(entry.containerActionId, 
-      TileUndoEntry.create({
-        tileId: "list", 
-        actionName: entry.actionName, 
-        patches: entry.patches, 
-        inversePatches: entry.inversePatches})
-    );
+  // TODO use patterns added to CLUE so we can refer to a single MST model type for all
+  // of the components
+  const components: Record<string, Instance<typeof DQRoot> | Instance<typeof ItemList> | Instance<typeof SharedModel>>
+    = {diagram, itemList, sharedModel};
 
-  }, false, { 
-    "/sharedModel/": (containerActionId, call) => { 
-      // Note: the environment of the call will be undefined because the undoRecorder cleared 
-      // it out before it calling this function
-      console.log("captured list sharedModel changes", {containerActionId, action: call});
-          
-      if (call.name !== "applySharedModelSnapshotFromContainer") {
-        const snapshot = getSnapshot(list.sharedModel);      
-        sendSnapshotToSharedModel(containerActionId, list, snapshot);
-      }
-
-      // sync updates that were just applied to the shared model
-      // TODO: see the comment in diagram code above for concerns for this
-      list.syncSharedModelWithTileModel(containerActionId);
-    }
-  });
+  const tiles = {diagram, itemList};
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const sharedModelRecorder = createUndoRecorder(sharedModel, (entry) => {
@@ -190,16 +129,13 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
     while it was in transit. But again we don't have a good use case for this.
   */
 
-  const tiles = {diagram, list};
-
-  const sendSnapshotToSharedModel = (containerActionId: string, source: any, snapshot: any) => {
-    sharedModel.applySnapshotFromTile(containerActionId, snapshot);
-    sendSharedModelSnapshotToTiles(containerActionId, source, snapshot);
-  };
-
-  const sendSharedModelSnapshotToTiles = (containerActionId: string, source: any, snapshot: any, syncAfterApplying = true) => {
+  
+  // FIXME: syncAfterApplying is not used, perhaps we can get rid of this?
+  const sendSharedModelSnapshotToTiles = (containerActionId: string, sourceTileId: string, snapshot: any, syncAfterApplying = true) => {
     for (const tile of Object.entries(tiles)) {
-      if (tile[1] === source) continue;
+      // FIXME: the list of tiles is right now not using ids just
+      // the name of the tile
+      if (tile[0] === sourceTileId) continue;
 
       console.log(`repeating changes to ${tile[0]}`, snapshot);
 
@@ -207,5 +143,5 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
     }
   };
 
-  return {diagram, list, sharedModel, undoStore};
+  return {diagram, itemList, sharedModel, undoStore};
 };

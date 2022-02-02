@@ -52,16 +52,18 @@ export const createUndoRecorder = (targetStore: IAnyStateTreeNode, onRecorded: (
             // TODO: this seems like a bit of a hack. We are looking for specific actions
             // which we know include a containerActionId as their first argument
             // this is so we can link all of the changes with this same containerActionId
+            // These actions are all defined on the common `Tile` model which is
+            // composed into the actual tiles of Diagram and ItemList. So at least
+            // the specific tile are not defining these actions themselves.
+            //
             // I can't think of a better way so far. 
             // If a function in this middleware could apply the snapshots and run the 
             // syncing that would let us directly pass in the containerActionId. However
             // we still need to record the changes in the undo history. So we still need
-            // want to be in this middleware. 
-            // Perhaps there is a way to use something like decorate to modify the
-            // call environment for an individual action call.
-            // I thought at one point I saw a way to construct a custom action without
-            // defining a method on the model. If that was possible we might be able to
-            // use it to pass in the containerActionId
+            // this to pass through as an action so the middleware can record it.
+            //
+            // We could use the `decorate` feature of MST to at least make it more clear
+            // in the Tile model that these actions are special. 
             if (call.name === "applySnapshotFromTile" || 
                 call.name === "applySharedModelSnapshotFromContainer" ||
                 call.name === "syncSharedModelWithTileModel") {
