@@ -274,3 +274,20 @@ The container has a collection of trees.
 The patches of need to be applied to the trees.
 The shared model view is mounted in the tile tree.
 The container can also have tree proxies so it can work with tiles or shared models in iframes or workers.
+
+
+A problem with making a shared model both a tree and the actual model is that 
+the actual model is used directly inside of the tile tree. So we don't want 
+all of the tree features, just the bare model. 
+A way around this to have the shared model be a child of the shared model tree
+But this then complicates a few things:
+- we are using the id in the shared model's snapshot to identify which shared model
+  to update. If this was a child of the tree then applying the snapshot and patches
+  would not be symmetrical between the tree and shared model. 
+
+Another way to handle this, is to have the tree be a composite of the shared model
+and the tree. But the when the shared model is used in the tile tree just the 
+shared model is used. This is a bit mind bending, but might work...
+
+It does mean that the shared model and tree would both need to declare an id property.
+Also I wonder if the snapshots will apply correctly, it seems like they should. 
