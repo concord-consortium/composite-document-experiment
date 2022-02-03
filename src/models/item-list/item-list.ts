@@ -56,7 +56,7 @@ export const ItemList = Tile.named("ItemList")
         destroy(foundItem);
     },
 
-    updateTileModel() {
+    updateTreeAfterSharedModelChanges() {
         // First cleanup any invalid references this can happen when a item is deleted
         self.allItems.forEach(itemListItem => {
             // If the sharedItem is not valid destroy the list item

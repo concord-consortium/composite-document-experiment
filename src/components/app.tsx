@@ -14,7 +14,7 @@ const loadInitialState = () => {
   // Default diagram
   let document = {
     sharedModel: {
-      id: "1",
+      id: "sharedModel",
       allItems: {
         "1": {
           id: "1",
@@ -25,7 +25,7 @@ const loadInitialState = () => {
     diagram: {
       id: "diagram",
       sharedModel: {
-        id: "1",
+        id: "sharedModel",
         allItems: {
           "1": {
             id: "1",
@@ -45,7 +45,7 @@ const loadInitialState = () => {
     itemList: {
       id: "itemList",
       sharedModel: {
-        id: "1",
+        id: "sharedModel",
         allItems: {
           "1": {
             id: "1",

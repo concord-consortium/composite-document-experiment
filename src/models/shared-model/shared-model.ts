@@ -1,4 +1,4 @@
-import { types, destroy, applySnapshot, IJsonPatch, applyPatch } from "mobx-state-tree";
+import { types, destroy, applySnapshot } from "mobx-state-tree";
 
 export const SharedItem = types.model("SharedItem", {
     id: types.identifier,
@@ -40,10 +40,14 @@ export const SharedModel = types.model("SharedModel", {
         // self.nodes.delete(nodeId);
         destroy(nodeToRemove);
     },
+
+    // TODO: We might be able to reuse the applySharedModelSnapshotFromContainer
+    // here. It has the same signature.
+    // The difference is that applySharedModelSnapshotFromContainer is used 
+    // to update the views of the shared models that are mounted in the tile trees
+    // in this case we are updating the main shared model tree.
+    // Hopefully this will become more clear soon
     applySnapshotFromTile(containerActionId: string, snapshot: any) {
         applySnapshot(self, snapshot);
-    },
-    applyPatchesFromUndo(patchesToApply: readonly IJsonPatch[]) {
-        applyPatch(self, patchesToApply);
     },
 }));

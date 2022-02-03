@@ -75,7 +75,7 @@ export const DQRoot = Tile.named("DQRoot")
         destroy(nodeToRemove);
     },
 
-    updateTileModel() {
+    updateTreeAfterSharedModelChanges() {
         // First clean up any nodes that reference invalid (removed) shared items.
         // See notes.md for while using onInvalidated didn't work for doing this
         self.nodes.forEach(node => {

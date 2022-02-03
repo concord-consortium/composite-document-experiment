@@ -66,7 +66,7 @@ export const createUndoRecorder = (targetStore: IAnyStateTreeNode, onRecorded: (
             // in the Tile model that these actions are special. 
             if (call.name === "applySnapshotFromTile" || 
                 call.name === "applySharedModelSnapshotFromContainer" ||
-                call.name === "syncSharedModelWithTileModel") {
+                call.name === "updateTreeAfterSharedModelChangesInternal") {
                 containerActionId = call.args[0];
             } else {
                containerActionId = uuidv4();
