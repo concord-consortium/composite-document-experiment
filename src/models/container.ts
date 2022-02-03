@@ -19,8 +19,6 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
 
   const containerAPI: ContainerAPI = {
     updateSharedModel: (containerActionId: string, sourceTreeId: string, snapshot: any) => {
-      // If we support tiles having customized views of shared models then this will
-      // need to become more complex.
       // Right now this is can be called in 2 cases:
       // 1. when a user changes something in a tile which 
       //    then updates the tile's view of the shared model, so the tile wants all copies
@@ -28,6 +26,8 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
       // 2. when a user undos or redos an action that affects the shared model tree. In this
       //    case the shared model calls updateSharedModel to send these changes to all of 
       //    the tile views
+      // If we support tiles having customized views of shared models then this will
+      // need to become more complex.
       for (const tree of Object.entries(trees)) {
         if (tree[0] === sourceTreeId) continue;
   

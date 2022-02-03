@@ -52,9 +52,9 @@ export const createUndoRecorder = (targetStore: IAnyStateTreeNode, onRecorded: (
             // TODO: this seems like a bit of a hack. We are looking for specific actions
             // which we know include a containerActionId as their first argument
             // this is so we can link all of the changes with this same containerActionId
-            // These actions are all defined on the common `Tile` model which is
-            // composed into the actual tiles of Diagram and ItemList. So at least
-            // the specific tile are not defining these actions themselves.
+            // These actions are all defined on the common `Tree` model which is
+            // composed into the actual tiles and shared models. So at least
+            // the specific trees are not defining these actions themselves.
             //
             // I can't think of a better way so far. 
             // If a function in this middleware could apply the snapshots and run the 
@@ -80,26 +80,15 @@ export const createUndoRecorder = (targetStore: IAnyStateTreeNode, onRecorded: (
                         return false;
                     }
 
-                    // Filter out patches that are modifying the exclude path. 
-                    // Because we need to track when the cached shared models is changed during this
-                    // action we either need to record just that fact or record all patches
-                    // and filter later
+                    // See if the patch is modifying one of the mounted shared model views
+                    // If it is then don't record this patch, and also track the modification
+                    // so we can notify the tree when the action is done.
+                    // The tree needs to know about these modifications so it can update
+                    // itself from changes in the shared model view, and so it can send these
+                    // changes to the container.
                     if (sharedModelsConfig) {
                         const sharedModelPath = sharedModelPaths.find((path) => _patch.path.startsWith(path));
                         if (sharedModelPath) {
-                            // FIXME: a problem with this approach is that we treating all changes within 
-                            // the sharedModelPath the same. 
-                            // If the change is simple property change in the cached shared model that
-                            // isn't used by the syncing function, we do not need to re-run this function.
-                            // When we used the autorun approach this was optimized so the function would
-                            // only run when the parts of the tree changed that mattered.
-                            // We do still need to run the sync between the shared model cache
-                            // and the main shared model with these changes, but that is currently handled
-                            // by the onAction handler which fires all of the time.
-                            // There might be a way to use the mobx internals so the sync function can 
-                            // be bypassed if its dependencies aren't changed. Or perhaps there is a better
-                            // way to trigger these kinds of updates in a context where we still have access
-                            // the main action.
                             // increment the number of modifications made to the shared model
                             sharedModelModifications[sharedModelPath]++;
                             // don't record this patch because it will be recorded by the shared model itself
@@ -115,7 +104,6 @@ export const createUndoRecorder = (targetStore: IAnyStateTreeNode, onRecorded: (
             );
             recorder.resume();
 
-            // TODO: Generate a containerUndoId if there isn't one already set
             call.env = {
                 recorder,
                 sharedModelModifications,
@@ -132,20 +120,15 @@ export const createUndoRecorder = (targetStore: IAnyStateTreeNode, onRecorded: (
 
             if (error === undefined) {
                 addUndoState(recorder, call.name, containerActionId);
-                // TODO: Trigger shared model translating/syncing if the shared data model changed.
-                // This might be both the syncing of the shared model to the container, and the syncing of 
-                // within the tile between the 'cached' shared model with the tile's model.
-                // Previously this internal sync'ing was done using an autorun to monitor the models. 
-                // But that doesn't have access to the action that triggered the sync, and that action is
+                // Call the shared model notification function if there are changes. 
+                // This is needed so the changes can be sent to the container,
+                // and so the changes can trigger a update/sync of the tile model
+                // Previously this internal updating or sync'ing was done using an autorun to monitor the models. 
+                // But that doesn't have access to the action id that triggered the sync, and that action id is
                 // needed so we can group the changes together so we can undo them later.
-                // So we need to pass in a object with call back for each shared model and its path so we know which
-                // ones to sync
                 Object.entries(sharedModelModifications).forEach(([path, numModifications]) => {
                     if (numModifications > 0) {
-                        // Tell the shared model update function to run
-                        // we probably have to pass it something here
-                        // this will likely be an action on a model in the tree being watched so we'll need
-                        // to prevent this from causing an infinite loop
+                        // Run the callback tracking changes to the shared model
                         sharedModelsConfig[path](containerActionId, call);
                     }
                 });

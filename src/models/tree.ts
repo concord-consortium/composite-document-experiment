@@ -65,8 +65,24 @@ export const Tree = types.model("Tree", {
                         containerAPI().updateSharedModel(containerActionId, self.id, snapshot);
                     }
 
-
-                    // sync the updates that were just applied to the shared model
+                    // let the tile update its model based on the updates that were just applied to 
+                    // the shared model
+                    //
+                    // TODO: an inefficiency  with this approach is that we treating all changes within 
+                    // the sharedModelPath the same. 
+                    // If the change is a simple property change in the shared model view that
+                    // isn't used by updateTreeAfterSharedModelChanges, we do not need to re-run 
+                    // updateTreeAfterSharedModelChanges.
+                    // When we used the autorun approach this was optimized so the function would
+                    // only run when the needed parts of the tree changed.
+                    // 
+                    // We do need to send the shared model snapshot to the container whenever
+                    // there are any changes to the tree so the code above is fine. 
+                    //
+                    // There might be a way to use the mobx internals so we can track 
+                    // what updateTreeAfterSharedModelChanges is using and only run it
+                    // when one of those things have changed. 
+                    //
                     // TODO: figure out how undo will be handled here.  We are calling an action
                     // from a middleware that just finished the action. Will it start a new top
                     // level action? Will it be allowed? Will it cause a inifite loop?
@@ -185,7 +201,7 @@ export const Tree = types.model("Tree", {
             // If there were no intermediate actions, but something got corrupted 
             // what should we do?  I think the current implementation will record a new
             // action in the undo stack which would basically break the undo behavior.
-            // TODO: find a to log to the console that this error
+            // TODO: find a way to log to the console that this error
             //   condition happened.
             self.updateTreeAfterSharedModelChanges();
         },
