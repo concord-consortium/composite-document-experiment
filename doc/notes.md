@@ -194,3 +194,83 @@ experiment with this to see how it works in practice.
 - this same approach can probably be used when reloading the document, however in that
 case it might make sense to lock some parts of document until they are are fully
 loaded.
+
+Comment that was in the container before:
+
+    The container takes a simple approach right now. It acts as a repeater of messages
+    sent by each tile. The message includes the tile's state of shared model. The
+    container only sends the message to the tiles that didn't send the message.
+
+    Right now the container is the one watching the tile trees with `onAction`
+    In a real scenario where the tiles are managing their own trees (sometimes in
+    an iframe) the tile would watch its own tree. See the first
+    onAction handler for more details about this.
+
+    This repeater approach avoids the simple infinite loop. However if there is a delay 
+    in the message passing then it can result some strange cases. Also if a tile
+    updated the shared model in response to a change made by a different tile 
+    there still could be an infinite loop. A simple example are tiles that are 
+    sharing numbers represented by strings. Perhaps one tile wants to always have
+    1 digit of precision "1.0" and the other wants "1.00". Whenever the number changes
+    the two tiles will just keep updating the same number again and again. 
+    I don't think there is much we can do to prevent this. But perhaps we could 
+    add some kind of loop detection code.
+
+    This approach also doesn't support shared models that have their own logic or 
+    reactions. I do not have a use case yet where the shared model needs it own
+    logic. An example would be a shared model that wants to keep its items sorted,
+    but that doesn't seem like a good case.
+
+    If we do have a good use case, this seems possible to handle, but it adds 
+    complexity. The shared model might need to send state back to the tile. So
+    to avoid the infinite loop problem both the shared model and the tile should
+    keep track of the last state they received and not resend if it matches. This
+    could be done with a hash to save memory. But if we want to also reduce the
+    amount of data shipped around a full copy is useful so then we can just send
+    diffs. 
+
+    Before we add that complexity we should see if there is a use case where the 
+    shared model needs to make its own changes. 
+    
+    Another version of this is if we want to support two tiles changing the state
+    at the same time. In this case we might need to send state back to the tile
+    immediately after the tile sent state because another tile modified it
+    while it was in transit. But again we don't have a good use case for this.
+
+# Naming
+
+The thing the container contains could be call "trees". It these trees need to be
+kept in sync. A tile or shared model are two types of trees. This is less
+generic than "model".
+
+Now we need a name for the shared model that is mounted inside of a tile tree.
+The main shared model could be called the source. And thing mounted in the 
+tile could be a shadow. I think it would be more useful if the shared model 
+represented the abstract concept of sharing state. So then we need names for
+the 2 ways that is represented in the system. 
+
+We have talked about tiles containing a subset of the shared model and I've 
+referred to that as a "view" of the shared model. So we could call these
+shared model views.  In the implementation so far the view is just the full
+model. The other one could be the shared model tree. It would be nice to use
+the generic name of things in the container here. But a shared model tree
+isn't clear to me. So maybe this will help us come up with a better name.
+- shared model source
+- shared model container
+- shared model origin
+- shared model state
+- shared model tree
+- shared model model
+- shared model root
+- main shared model
+- shared model database
+- principal shared model
+- shared model arbol
+- shared model raiz (spanish for root)
+
+The shared model tree needs to be sent to each tile's shared model view.
+The shared model view needs to be synced with the tile's models.
+The container has a collection of trees.
+The patches of need to be applied to the trees.
+The shared model view is mounted in the tile tree.
+The container can also have tree proxies so it can work with tiles or shared models in iframes or workers.

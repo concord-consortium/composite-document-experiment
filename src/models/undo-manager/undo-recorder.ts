@@ -64,8 +64,7 @@ export const createUndoRecorder = (targetStore: IAnyStateTreeNode, onRecorded: (
             //
             // We could use the `decorate` feature of MST to at least make it more clear
             // in the Tile model that these actions are special. 
-            if (call.name === "applySnapshotFromTile" || 
-                call.name === "applySharedModelSnapshotFromContainer" ||
+            if (call.name === "applySharedModelSnapshotFromContainer" ||
                 call.name === "updateTreeAfterSharedModelChangesInternal") {
                 containerActionId = call.args[0];
             } else {

@@ -4,7 +4,7 @@ import { createUndoRecorder, SharedModelsConfig } from "./undo-manager/undo-reco
 import { TileUndoEntry } from "./undo-manager/undo-store";
 
 export interface ContainerAPI {
-    sendSnapshotToSharedModel: (containerActionId: string, tileId: string, snapshot: any) => void
+    updateSharedModel: (containerActionId: string, tileId: string, snapshot: any) => void
 }
 
 export const Tree = types.model("Tree", {
@@ -62,7 +62,7 @@ export const Tree = types.model("Tree", {
                         // stack
                         const snapshot = getSnapshot(model); 
                         
-                        containerAPI().sendSnapshotToSharedModel(containerActionId, self.id, snapshot);
+                        containerAPI().updateSharedModel(containerActionId, self.id, snapshot);
                     }
 
 
