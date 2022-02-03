@@ -1,11 +1,8 @@
 import { types, applySnapshot, IJsonPatch, applyPatch, Instance, getEnv, getPath, getSnapshot } from "mobx-state-tree";
+import { ContainerAPI } from "./container-api";
 import { SharedModel } from "./shared-model/shared-model";
 import { createUndoRecorder, SharedModelsConfig } from "./undo-manager/undo-recorder";
 import { TileUndoEntry } from "./undo-manager/undo-store";
-
-export interface ContainerAPI {
-    updateSharedModel: (containerActionId: string, tileId: string, snapshot: any) => void
-}
 
 export const Tree = types.model("Tree", {
     id: types.identifier
@@ -22,7 +19,6 @@ export const Tree = types.model("Tree", {
     }
 }))
 .actions(self => {
-    // We might need this later
     const containerAPI = () => getEnv(self).containerAPI as ContainerAPI;
 
     return {
@@ -83,17 +79,19 @@ export const Tree = types.model("Tree", {
                     // what updateTreeAfterSharedModelChanges is using and only run it
                     // when one of those things have changed. 
                     //
-                    // TODO: figure out how undo will be handled here.  We are calling an action
-                    // from a middleware that just finished the action. Will it start a new top
-                    // level action? Will it be allowed? Will it cause a inifite loop?
-                    // what about other middleware that might be added to tree will this approach
-                    // break that?
-                    // Because of all these questions it might be better to run this sync in
-                    // a setTimeout callback so it is part of a different stack, and in that case
-                    // we would pass in the containerActionId.
-                    // In theory it shouldn't cause a loop because the synSharedModelWithTileModel
-                    // shouldn't modify the sharedModel, so it shouldn't come back to this 
-                    // callback.
+                    // NOTE: We are calling an action from a middleware that just finished a
+                    // different action. Doing this starts a new top level action:
+                    // an action with no parent actions. This is what we want so we can record
+                    // any changes made to the tree as part of the undo entry.
+                    // I don't know if calling an action from a middleware is an officially 
+                    // supported or tested approach. 
+                    // It would probably be safer to run this in a setTimeout callback. 
+                    // 
+                    // This should not cause a loop because the implementation of 
+                    // updateTreeAfterSharedModelChanges should not modify the shared model
+                    // view that triggered this handler in the first place. 
+                    // However a developer might make a mistake. So it would be useful if
+                    // we could identify the looping and notify them.
                     this.updateTreeAfterSharedModelChangesInternal(containerActionId);
 
                 };
@@ -176,33 +174,42 @@ export const Tree = types.model("Tree", {
         finishApplyingContainerPatches() {
             self.applyingContainerPatches = false;
 
-            // FIXME: Need to deal with the effects on the undo stack
-            // If all of the patches applied with no intermediate changes
-            // there should be nothing to update, so there wouldn't be anything
-            // in the undo stack.
-            // However, if the user made a change in the shared model like deleting
-            // a node while the patches were being applied this would be out of sync
-            // So that deleted node change would get applied here. The tree would 
-            // be out of sync because the `applyingContainerPatches` flag was 
-            // enabled during this time.
+            // TODO: Need to deal with possible effects on the undo stack
             // 
-            // We could try to record the action id of any actions that happen
-            // while the patches are being applied. 
-            // But if multiple actions happened, any associated changes in the tree
-            // would basically get merged together when updateTreeAfterSharedModelChanges 
-            // was called.
+            // If all of the patches applied correctly and the user didn't inject
+            // any changes while the patches were applying, then everything should
+            // be fine. There should be nothing updated by with no intermediate changes
+            // there should be nothing to updated by updateTreeAfterSharedModelChanges
+            // 
+            // However, if the user made a change in the shared model like deleting
+            // a node while the patches were being applied this would make the 
+            // shared model be out of sync with the tree. The tree would not be updated
+            // before now because applyingContainerPatches is true. 
+            // So that deleted node change would get applied here. 
+            // When it is applied it would generate a new undoable action that is not
+            // grouped with the action that deleted the node from the shared model.
+            // So now if the user undoes, the actions will not get undone together. 
+            // This will probably result in a broken UI for the user. 
+            // 
+            // We could record the action id of any actions that happen
+            // while the patches are being applied. It is possible that multiple actions
+            // could happen. Because we aren't running the updateTreeAfterSharedModelChanges
+            // after each of these actions, we wouldn't be able to tell what tree updates
+            // are associated with which if the multiple actions. 
             //
-            // I guess the best thing we could do is:
+            // I think the best thing to do is:
             // - merge any actions that happened during the patch application into
             //   a single action. So basically combine their patches.
             // - use the id of that combined action for any changes the 
-            //   updateTreeAfterSharedModelChanges causes. 
+            //   updateTreeAfterSharedModelChanges causes here.
             //
-            // If there were no intermediate actions, but something got corrupted 
-            // what should we do?  I think the current implementation will record a new
-            // action in the undo stack which would basically break the undo behavior.
-            // TODO: find a way to log to the console that this error
-            //   condition happened.
+            // If there were no injected or intermediate actions, but for some reason 
+            // this update function does make changes in the tree, 
+            // what should we do?  
+            // We should at least log this issue to the console, so we can try to track
+            // down what happened. One likely reason is a broken implementation of the 
+            // updateTreeAfterSharedModelChanges. And that will be likely to happen 
+            // during development.
             self.updateTreeAfterSharedModelChanges();
         },
     };

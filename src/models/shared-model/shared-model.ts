@@ -1,4 +1,5 @@
 import { types, destroy, applySnapshot, IJsonPatch, applyPatch, getSnapshot, getEnv } from "mobx-state-tree";
+import { ContainerAPI } from "../container-api";
 
 export const SharedItem = types.model("SharedItem", {
     id: types.identifier,
@@ -40,26 +41,33 @@ export const SharedModel = types.model("SharedModel", {
         // self.nodes.delete(nodeId);
         destroy(nodeToRemove);
     },
+}))
+.actions(self => {
+    // These actions could be moved to some common code that is used by all shared models
+    // trees.
+    // These actions are only needed by the SharedModelTree not the shared model view
+    const containerAPI = () => getEnv(self).containerAPI as ContainerAPI;
 
-    // We override the Tree implementation of this action here
-    // We might be able to use the Tree implementation, but overriding it
-    // keeps things more simple for now.
-    applySharedModelSnapshotFromContainer(containerActionId: string, snapshot: any) {
-        // make sure this snapshot is for our shared model and not some other
-        // shared model
-        if (snapshot.id !== self.id) {
-            console.log("tried to apply shared model snapshot from different tree", {selfId: self.id, snapshot});
-            return;
-        }
-        applySnapshot(self, snapshot);
-    },
+    return {
+        // We override the Tree implementation of this action here
+        // We might be able to use the Tree implementation, but overriding it
+        // keeps things more simple for now.
+        applySharedModelSnapshotFromContainer(containerActionId: string, snapshot: any) {
+            // make sure this snapshot is for our shared model and not some other
+            // shared model
+            if (snapshot.id !== self.id) {
+                console.log("tried to apply shared model snapshot from different tree", {selfId: self.id, snapshot});
+                return;
+            }
+            applySnapshot(self, snapshot);
+        },
 
-    // Override this from Tree so we can also tell the container to update the
-    // views of the shared model in all of the other trees
-    applyPatchesFromUndo(patchesToApply: readonly IJsonPatch[]) {
-        applyPatch(self, patchesToApply);
+        // Override this from Tree so we can also tell the container to update the
+        // views of the shared model in all of the other trees
+        applyPatchesFromUndo(patchesToApply: readonly IJsonPatch[]) {
+            applyPatch(self, patchesToApply);
 
-        // FIXME: add typing to the containerAPI like we do in other places
-        getEnv(self).containerAPI.updateSharedModel("fake action id", self.id, getSnapshot(self));
-    },
-}));
+            containerAPI().updateSharedModel("fake action id", self.id, getSnapshot(self));
+        },
+    };
+});

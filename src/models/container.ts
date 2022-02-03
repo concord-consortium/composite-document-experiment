@@ -4,7 +4,8 @@ import { Instance, types } from "mobx-state-tree";
 import { DQRoot } from "./diagram/dq-root";
 import { ItemList } from "./item-list/item-list";
 import { SharedModel } from "./shared-model/shared-model";
-import { ContainerAPI, Tree } from "./tree";
+import { Tree } from "./tree";
+import { ContainerAPI } from "./container-api";
 import { UndoStore } from "./undo-manager/undo-store";
 
 export const Container = ({initialDiagram, initialItemList, initialSharedModel}: any) => {
