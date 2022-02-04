@@ -5,23 +5,23 @@
 // that it would use to communicate with the remote tree
 
 import { IJsonPatch, Instance } from "mobx-state-tree";
+import { delay } from "../utils/delay";
 import { Tree } from "./tree";
 
 // This proxy should also serve as a way to document the tile
 // API more concretely than the current Tree model does.
 
 export interface TreeLike {
-  startApplyingContainerPatches(): Promise<void>;
-  applyPatchesFromUndo(patchesToApply: readonly IJsonPatch[]): Promise<void>;
-  finishApplyingContainerPatches(): Promise<void>;
+    startApplyingContainerPatches(): Promise<void>;
+    applyPatchesFromUndo(patchesToApply: readonly IJsonPatch[]): Promise<void>;
+    finishApplyingContainerPatches(): Promise<void>;
 
-  applySharedModelSnapshotFromContainer(containerActionId: string, snapshot: any): void;
-}
-
-function delay(milliSeconds: number) {
-    return new Promise(function(resolve) { 
-        setTimeout(resolve, milliSeconds);
-    });
+    // The returned promise should resolve when all of the changes
+    // have been applied to the shared model view in the tree. 
+    // The promise should not wait for the rest of the tree to sync
+    // with these changes. This is because during the application of 
+    // undo patches this syncing shouldn't happen until later. 
+    applySharedModelSnapshotFromContainer(containerActionId: string, snapshot: any): Promise<void>;
 }
 
 export class TreeProxy implements TreeLike {
@@ -44,7 +44,7 @@ export class TreeProxy implements TreeLike {
         // the patches from the tile
         return delay(0).then(() => this.tree.finishApplyingContainerPatches());
     }
-    applySharedModelSnapshotFromContainer(containerActionId: string, snapshot: any): void {
-        setTimeout(() => this.tree.applySharedModelSnapshotFromContainer(containerActionId, snapshot), 50);
+    applySharedModelSnapshotFromContainer(containerActionId: string, snapshot: any) {
+        return delay(50).then(() => this.tree.applySharedModelSnapshotFromContainer(containerActionId, snapshot));
     }
 } 

@@ -292,7 +292,7 @@ shared model is used. This is a bit mind bending, but might work...
 It does mean that the shared model and tree would both need to declare an id property.
 Also I wonder if the snapshots will apply correctly, it seems like they should. 
 
-# Recreating Problematic async case
+# Recreating Problematic async case 1
 
 The timing of the undo of a node deletion is important:
 
@@ -308,3 +308,49 @@ The timing of the undo of a node deletion is important:
 
 Additionally these 2 nodes have the same id and reference the same shared model item.
 An exception will be shown in the console because the keys of the elements in React match.
+
+# Recreating Problematic async case 2
+
+With an artificial delay added to when the shared data model sends tells the
+container to update all tiles that are viewing it, a problem can occur. This is
+kind of delay seems unlikely since it seems in most cases shared models will be 
+running in the clue core.
+
+However it is possible that the sending of the state to the tiles from the container
+could be delayed since this would be going through the iframe boundary.
+
+With this kind of delay a problem can be shown by:
+1. adding a node
+2. move the new node to the top of the list
+3. delete the node
+4. undo the last change.
+ 
+If the shared model is not sent to the tile soon enough, then the tiles delete their
+copy of the node since it is not yet in the shared model view. This will happen when
+the updateTreeAfterSharedModelChanges is called by the finishApplyingPatches call.
+The updateTreeAfterSharedModelChanges deletes nodes because it is trying to keep the 
+tile's references to these shared models in sync with the shared model.
+when the shared model is finally sent, this causes updateTreeAfterSharedModelChanges 
+to run again and now the tile recreates a node/item for this shared item.
+
+This has 2 effects:
+- the internal state associated with the node/item is lost (its position in the list,
+or position on the diagram)
+- the undo stack will be broken because there will be changes applied outside of 
+  applyPatchesFromUndo, so these changes are recorded on the undo stack. So now the next undo 
+  will not go back in time, but instead just try to undo the mess that was caused
+  before. From testing this resulted in 3 entries added to the stack:
+  1. finishApplyingContainerPatches on the diagram with a removal of the node
+  2. finishApplyingContainerPatches on the list with a a removal of the item
+  3. a single entry with updateTreeAfterSharedModelChangesInternal actions from the 
+     diagram and list. Which are adding the node back.
+  I haven't thought through this deeply, but that list makes sense. This is one example
+  of how errors updateTreeAfterSharedModelChanges can result in hard to find errors.
+  This is more reason to add error checking to that so we can catch these errors
+  sooner.
+
+This is fixed by returning promises from the chain that don't resolve until the
+shared model changes have been applied. 
+
+TODO: it seems like there might be a case where the promise chain could get really
+long. I want to trace this through to see how long this could get.

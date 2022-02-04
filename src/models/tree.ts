@@ -155,6 +155,13 @@ export const Tree = types.model("Tree", {
                 return;
             }
             applySnapshot(model, snapshot);
+
+            // The contract is that the promise we return should not resolve
+            // until all of the changes have been applied to shared model.
+            // We should not wait until the tree has run 
+            // updateTreeAfterSharedModelChanges
+            // So we can just resolve immediately
+            return Promise.resolve();
         },
 
         // The container calls this before it calls applyPatchesFromUndo
