@@ -104,11 +104,11 @@ export const Tree = types.model("Tree", {
             createUndoRecorder(self, (entry) => {
                 console.log("recording undoable action", {treeId: self.id, ...entry});
                 undoStore.addUndoEntry(entry.containerActionId, 
-                TileUndoEntry.create({
-                    tileId: self.id, 
-                    actionName: entry.actionName, 
-                    patches: entry.patches, 
-                    inversePatches: entry.inversePatches})
+                    TileUndoEntry.create({
+                        tileId: self.id, 
+                        actionName: entry.actionName, 
+                        patches: entry.patches, 
+                        inversePatches: entry.inversePatches})
                 );
             }, false, sharedModelsConfig );
         },

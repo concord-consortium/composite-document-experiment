@@ -291,3 +291,20 @@ shared model is used. This is a bit mind bending, but might work...
 
 It does mean that the shared model and tree would both need to declare an id property.
 Also I wonder if the snapshots will apply correctly, it seems like they should. 
+
+# Recreating Problematic async case
+
+The timing of the undo of a node deletion is important:
+
+- the container has told the tile that it is done applying patches 
+- because of a delay in the system it is not actually done
+- the shared model is updated but the snapshot of it is sent to the tile after this finished message 
+- this triggers the tile's updateTreeAfterSharedModelChanges to run
+- the list tile will add a new item to its tree for the newly added shared model item
+- now the patches of the list item itself are sent to the list tile, these were also delayed
+  that is why they are happening late
+- at this point the patches create a new node in the list tile's tree
+- so now there are 2 new nodes in the list tile's tree instead of one.
+
+Additionally these 2 nodes have the same id and reference the same shared model item.
+An exception will be shown in the console because the keys of the elements in React match.

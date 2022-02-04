@@ -1,12 +1,13 @@
 // This model keeps the documents in sync
 
-import { Instance, types } from "mobx-state-tree";
+import { types } from "mobx-state-tree";
 import { DQRoot } from "./diagram/dq-root";
 import { ItemList } from "./item-list/item-list";
 import { SharedModel } from "./shared-model/shared-model";
 import { Tree } from "./tree";
 import { ContainerAPI } from "./container-api";
 import { UndoStore } from "./undo-manager/undo-store";
+import { TreeLike, TreeProxy } from "./tree-proxy";
 
 export const Container = ({initialDiagram, initialItemList, initialSharedModel}: any) => {
   
@@ -46,7 +47,14 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
   const sharedModel = SharedModelTree.create(initialSharedModel, {undoStore, containerAPI});
   sharedModel.setupUndoRecorder();
 
-  const trees: Record<string, Instance<typeof Tree>> = {diagram, itemList, sharedModel};
+  // wrap the diagram and itemList in proxies to emulate what happens
+  // if they were running in iframes
+  // TODO: these models should not have direct access to the undoStore and containerAPI
+  const diagramProxy = new TreeProxy(diagram);
+  const itemListProxy = new TreeProxy(itemList);
+
+  const trees: Record<string, TreeLike> = {diagram: diagramProxy, itemList: itemListProxy, sharedModel};
+  // const trees: Record<string, TreeLike> = {diagram, itemList, sharedModel};
 
   return {diagram, itemList, sharedModel, undoStore};
 };

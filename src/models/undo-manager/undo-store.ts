@@ -5,6 +5,7 @@ import {
     getSnapshot,
     getEnv
 } from "mobx-state-tree";
+import { TreeLike } from "../tree-proxy";
 
 // I don't know if it is worth making this a MST model
 // we aren't planning to save the undo stack across sessions
@@ -37,6 +38,10 @@ enum OperationType {
     Redo = "redo",
 }
 
+interface Environment {
+    getTreeFromId: (treeId: string) => TreeLike;
+}
+
 export const UndoStore = types
     .model("UndoStore", {
         history: types.array(UndoEntry),
@@ -61,7 +66,7 @@ export const UndoStore = types
     }))
     .actions((self) => {
         const applyPatchesToComponents = (entryToUndo: Instance<typeof UndoEntry>, opType: OperationType ) => {
-            const getTreeFromId = getEnv(self).getTreeFromId;
+            const getTreeFromId = (getEnv(self) as Environment).getTreeFromId;
 
             // first disable shared model syncing in the model
             entryToUndo.tileEntries.forEach(tileEntry => {
