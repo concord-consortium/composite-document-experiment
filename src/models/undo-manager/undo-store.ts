@@ -3,7 +3,8 @@ import {
     IJsonPatch,
     Instance,
     getSnapshot,
-    getEnv
+    getEnv,
+    flow
 } from "mobx-state-tree";
 import { TreeLike } from "../tree-proxy";
 
@@ -65,32 +66,42 @@ export const UndoStore = types
         }
     }))
     .actions((self) => {
-        const applyPatchesToComponents = (entryToUndo: Instance<typeof UndoEntry>, opType: OperationType ) => {
+        // This is going to need to be asynchronous, so we might as well use a flow
+        // that way we don't have create separate actions for each step of this.
+        const applyPatchesToComponents = flow(function* applyPatchesToComponents(entryToUndo: Instance<typeof UndoEntry>, opType: OperationType ) {
             const getTreeFromId = (getEnv(self) as Environment).getTreeFromId;
+            const tileEntries = entryToUndo.tileEntries;
 
             // first disable shared model syncing in the model
-            entryToUndo.tileEntries.forEach(tileEntry => {
-                getTreeFromId(tileEntry.tileId).startApplyingContainerPatches();
+            const startPromises = tileEntries.map(tileEntry => {
+                return getTreeFromId(tileEntry.tileId).startApplyingContainerPatches();
             });
+            yield Promise.all(startPromises);
 
             // apply the patches to all components
-            entryToUndo.tileEntries.forEach(tileEntry => {
+            const applyPromises = tileEntries.map(tileEntry => {
                 console.log(`send tile entry to ${opType} to the tree`, getSnapshot(tileEntry));
-                // FIXME: In an iframe system, this will be sent over postMessage
-                // Because this would be asynchronous this action should be a flow
-                // and it needs to wait for a confirmation from the tile or shared model
-                // that all of the patches have been applied and also any tile that is 
-                // working with the shared models have had time to update themselves
-                getTreeFromId(tileEntry.tileId).applyPatchesFromUndo(tileEntry.getPatches(opType));
+                // FIXME: when a patch is applied to shared model, it will send its updated
+                // state to all tiles. This needs to be waited for so all tiles have their
+                // updated state before finish is called.
+                return getTreeFromId(tileEntry.tileId).applyPatchesFromUndo(tileEntry.getPatches(opType));
             });
+            yield Promise.all(applyPromises);
 
             // finish the patch application
             // Need to tell all of the tiles to re-enable the sync and run the sync
             // to resync their tile models with any changes applied to the shared models
-            entryToUndo.tileEntries.forEach(tileEntry => {
-                getTreeFromId(tileEntry.tileId).finishApplyingContainerPatches();
+            // For this final step wait for everything to complete. This is incase a finish
+            // is delayed and a new action is undone during this delay.
+            // TODO: need to make sure a second applyPatchesToComponents action can't be 
+            // started until the current one is done. 
+            const finishPromises = tileEntries.map(tileEntry => {
+                return getTreeFromId(tileEntry.tileId).finishApplyingContainerPatches();
             });
-        };
+            // I'm using a yield because it isn't clear from the docs if an async MST action
+            // can return a promise or not.
+            yield Promise.all(finishPromises);
+        });
 
         return {
             addUndoEntry(containerActionId: string, tileUndoEntry: Instance<typeof TileUndoEntry>) {

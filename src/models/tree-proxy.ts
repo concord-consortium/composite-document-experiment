@@ -11,11 +11,17 @@ import { Tree } from "./tree";
 // API more concretely than the current Tree model does.
 
 export interface TreeLike {
-  startApplyingContainerPatches(): void;
-  applyPatchesFromUndo(patchesToApply: readonly IJsonPatch[]): void;
-  finishApplyingContainerPatches(): void;
+  startApplyingContainerPatches(): Promise<void>;
+  applyPatchesFromUndo(patchesToApply: readonly IJsonPatch[]): Promise<void>;
+  finishApplyingContainerPatches(): Promise<void>;
 
   applySharedModelSnapshotFromContainer(containerActionId: string, snapshot: any): void;
+}
+
+function delay(milliSeconds: number) {
+    return new Promise(function(resolve) { 
+        setTimeout(resolve, milliSeconds);
+    });
 }
 
 export class TreeProxy implements TreeLike {
@@ -25,18 +31,18 @@ export class TreeProxy implements TreeLike {
         this.tree = tree;
     }
 
-    startApplyingContainerPatches(): void {
-        setTimeout(() => this.tree.startApplyingContainerPatches(), 0);
+    startApplyingContainerPatches() {
+        return delay(0).then(() => this.tree.startApplyingContainerPatches());
     }
-    applyPatchesFromUndo(patchesToApply: readonly IJsonPatch[]): void {
-        setTimeout(() => this.tree.applyPatchesFromUndo(patchesToApply), 100);
+    applyPatchesFromUndo(patchesToApply: readonly IJsonPatch[]) {
+        return delay(100).then(() => this.tree.applyPatchesFromUndo(patchesToApply));
     }
-    finishApplyingContainerPatches(): void {
+    finishApplyingContainerPatches() {
         // To create a problematic situation, the timeout is set so the finish call occurs before 
         // the patches from the undo are applied to the tile. 
         // And the shared model changes coming from the container are applied before the 
         // the patches from the tile
-        setTimeout(() => this.tree.finishApplyingContainerPatches(), 0);
+        return delay(0).then(() => this.tree.finishApplyingContainerPatches());
     }
     applySharedModelSnapshotFromContainer(containerActionId: string, snapshot: any): void {
         setTimeout(() => this.tree.applySharedModelSnapshotFromContainer(containerActionId, snapshot), 50);

@@ -160,6 +160,11 @@ export const Tree = types.model("Tree", {
         // The container calls this before it calls applyPatchesFromUndo
         startApplyingContainerPatches() {
             self.applyingContainerPatches = true;
+
+            // We return a promise because the API is async
+            // The action itself doesn't do anything asynchronous though
+            // so it isn't necessary to use a flow
+            return Promise.resolve();
         },
 
         // This is defined as an action so it is clear that is part of the API
@@ -168,6 +173,10 @@ export const Tree = types.model("Tree", {
         // It might be called multiple times after startApplyingContainerPatches
         applyPatchesFromUndo(patchesToApply: readonly IJsonPatch[]) {
             applyPatch(self, patchesToApply);
+            // We return a promise because the API is async
+            // The action itself doesn't do anything asynchronous though
+            // so it isn't necessary to use a flow
+            return Promise.resolve();
         },
 
         // The container calls this after all patches have been applied
@@ -211,6 +220,11 @@ export const Tree = types.model("Tree", {
             // updateTreeAfterSharedModelChanges. And that will be likely to happen 
             // during development.
             self.updateTreeAfterSharedModelChanges();
+
+            // We return a promise because the API is async
+            // The action itself doesn't do anything asynchronous though
+            // so it isn't necessary to use a flow
+            return Promise.resolve();
         },
     };
     
