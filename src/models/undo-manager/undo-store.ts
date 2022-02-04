@@ -81,9 +81,10 @@ export const UndoStore = types
             // apply the patches to all components
             const applyPromises = tileEntries.map(tileEntry => {
                 console.log(`send tile entry to ${opType} to the tree`, getSnapshot(tileEntry));
-                // FIXME: when a patch is applied to shared model, it will send its updated
-                // state to all tiles. This needs to be waited for so all tiles have their
-                // updated state before finish is called.
+                // When a patch is applied to shared model, it will send its updated
+                // state to all tiles. If this is working properly the promise returned by
+                // the shared model's applyPatchesFromUndo will not resolve until all tiles
+                // using it have updated. 
                 return getTreeFromId(tileEntry.tileId).applyPatchesFromUndo(tileEntry.getPatches(opType));
             });
             yield Promise.all(applyPromises);
@@ -91,10 +92,8 @@ export const UndoStore = types
             // finish the patch application
             // Need to tell all of the tiles to re-enable the sync and run the sync
             // to resync their tile models with any changes applied to the shared models
-            // For this final step wait for everything to complete. This is incase a finish
+            // For this final step, we wait for everything to complete. This is incase a finish
             // is delayed and a new action is undone during this delay.
-            // TODO: need to make sure a second applyPatchesToComponents action can't be 
-            // started until the current one is done. 
             const finishPromises = tileEntries.map(tileEntry => {
                 return getTreeFromId(tileEntry.tileId).finishApplyingContainerPatches();
             });
@@ -141,6 +140,8 @@ export const UndoStore = types
                 }
     
                 const entryToUndo = self.history[self.undoIdx -1];
+                // TODO: If there is an applyPatchesToComponents currently running we
+                // should wait for it.
                 applyPatchesToComponents(entryToUndo, OperationType.Undo);
 
                 self.undoIdx--;
@@ -151,7 +152,8 @@ export const UndoStore = types
                 }
     
                 const entryToRedo = self.history[self.undoIdx];
-
+                // TODO: If there is an applyPatchesToComponents currently running we
+                // should wait for it.
                 applyPatchesToComponents(entryToRedo, OperationType.Redo);
     
                 self.undoIdx++;
