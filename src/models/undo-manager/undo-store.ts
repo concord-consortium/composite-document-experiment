@@ -12,7 +12,7 @@ import { TreeLike } from "../tree-proxy";
 // we aren't planning to save the undo stack across sessions
 // But this approach lets me follow a pattern common to the 
 // rest of the code. 
-export const TileUndoEntry = types.model("TileUndoEntry", {
+export const TreeUndoEntry = types.model("TreeUndoEntry", {
     tileId: types.string,
     actionName: types.string,
     patches: types.frozen<ReadonlyArray<IJsonPatch>>(),
@@ -31,7 +31,7 @@ export const TileUndoEntry = types.model("TileUndoEntry", {
 
 const UndoEntry = types.model("UndoEntry", {
     containerActionId: types.identifier,
-    tileEntries: types.array(TileUndoEntry)
+    treeEntries: types.array(TreeUndoEntry)
 });
 
 enum OperationType {
@@ -66,44 +66,45 @@ export const UndoStore = types
         }
     }))
     .actions((self) => {
-        // This is going to need to be asynchronous, so we might as well use a flow
-        // that way we don't have create separate actions for each step of this.
-        const applyPatchesToComponents = flow(function* applyPatchesToComponents(entryToUndo: Instance<typeof UndoEntry>, opType: OperationType ) {
+        // This is asynchronous. We might as well use a flow so we don't have to 
+        // create separate actions for each of the parts of this single action
+        const applyPatchesToTrees = flow(function* applyPatchesToTrees(entryToUndo: Instance<typeof UndoEntry>, opType: OperationType ) {
             const getTreeFromId = (getEnv(self) as Environment).getTreeFromId;
-            const tileEntries = entryToUndo.tileEntries;
+            const treeEntries = entryToUndo.treeEntries;
 
-            // first disable shared model syncing in the model
-            const startPromises = tileEntries.map(tileEntry => {
-                return getTreeFromId(tileEntry.tileId).startApplyingContainerPatches();
+            // first disable shared model syncing in the tree
+            const startPromises = treeEntries.map(treeEntry => {
+                return getTreeFromId(treeEntry.tileId).startApplyingContainerPatches();
             });
             yield Promise.all(startPromises);
 
-            // apply the patches to all components
-            const applyPromises = tileEntries.map(tileEntry => {
-                console.log(`send tile entry to ${opType} to the tree`, getSnapshot(tileEntry));
+            // apply the patches to all trees
+            const applyPromises = treeEntries.map(treeEntry => {
+                console.log(`send tile entry to ${opType} to the tree`, getSnapshot(treeEntry));
                 // When a patch is applied to shared model, it will send its updated
                 // state to all tiles. If this is working properly the promise returned by
                 // the shared model's applyPatchesFromUndo will not resolve until all tiles
-                // using it have updated. 
-                return getTreeFromId(tileEntry.tileId).applyPatchesFromUndo(tileEntry.getPatches(opType));
+                // using it have updated their view of the shared model.
+                return getTreeFromId(treeEntry.tileId).applyPatchesFromUndo(treeEntry.getPatches(opType));
             });
             yield Promise.all(applyPromises);
 
             // finish the patch application
             // Need to tell all of the tiles to re-enable the sync and run the sync
             // to resync their tile models with any changes applied to the shared models
-            // For this final step, we wait for everything to complete. This is incase a finish
-            // is delayed and a new action is undone during this delay.
-            const finishPromises = tileEntries.map(tileEntry => {
-                return getTreeFromId(tileEntry.tileId).finishApplyingContainerPatches();
+            // For this final step, we still use promises so we can wait for everything to complete. 
+            // This can be used in the future to make sure multiple applyPatchesToTrees are not 
+            // running at the same time.
+            const finishPromises = treeEntries.map(treeEntry => {
+                return getTreeFromId(treeEntry.tileId).finishApplyingContainerPatches();
             });
-            // I'm using a yield because it isn't clear from the docs if an async MST action
+            // I'm using a yield because it isn't clear from the docs if an flow MST action
             // can return a promise or not.
             yield Promise.all(finishPromises);
         });
 
         return {
-            addUndoEntry(containerActionId: string, tileUndoEntry: Instance<typeof TileUndoEntry>) {
+            addUndoEntry(containerActionId: string, treeUndoEntry: Instance<typeof TreeUndoEntry>) {
                 // Originally this skipped entries with no patches, we are assuming the caller
                 // already did that
     
@@ -120,7 +121,7 @@ export const UndoStore = types
                     self.history.push(entry);
                 }
     
-                entry.tileEntries.push(tileUndoEntry);
+                entry.treeEntries.push(treeUndoEntry);
     
                 // reset the undoIdx to the end of the history, this is because it is a 
                 // new user action so anything past this point can no longer be redone
@@ -140,9 +141,9 @@ export const UndoStore = types
                 }
     
                 const entryToUndo = self.history[self.undoIdx -1];
-                // TODO: If there is an applyPatchesToComponents currently running we
+                // TODO: If there is an applyPatchesToTrees currently running we
                 // should wait for it.
-                applyPatchesToComponents(entryToUndo, OperationType.Undo);
+                applyPatchesToTrees(entryToUndo, OperationType.Undo);
 
                 self.undoIdx--;
             },
@@ -152,9 +153,9 @@ export const UndoStore = types
                 }
     
                 const entryToRedo = self.history[self.undoIdx];
-                // TODO: If there is an applyPatchesToComponents currently running we
+                // TODO: If there is an applyPatchesToTrees currently running we
                 // should wait for it.
-                applyPatchesToComponents(entryToRedo, OperationType.Redo);
+                applyPatchesToTrees(entryToRedo, OperationType.Redo);
     
                 self.undoIdx++;
             },        

@@ -86,16 +86,16 @@ export const SharedModel = types.model("SharedModel", {
             // the updateTreeAfterSharedModelChanges is called by the finishApplyingPatches call.
             // The updateTreeAfterSharedModelChanges deletes nodes because it is trying to keep the 
             // tile's references to these shared models in sync with the shared model.
-            // when the shared model is finally sent, this causes updateTreeAfterSharedModelChanges 
+            // When the shared model is finally sent, this causes updateTreeAfterSharedModelChanges 
             // to run again and now the tile recreates a node/item for this shared item.
             //
             // This has 2 effects:
             // - the internal state associated with the node/item is lost (its position in the list,
             // or position on the diagram)
             // - the undo stack will be broken because there will be changes applied outside of 
-            //   applyPatches, so these changes are recorded on the undo stack. So now the next undo 
+            //   applyPatchesFromUndo, so these changes are recorded on the undo stack. So now the next undo 
             //   will not go back in time, but instead just try to undo the mess that was caused
-            //   before. From testing this resulted in 3 entries added to the stack:
+            //   before. From testing messed up undo stack has 3 entries added to the stack:
             //   1. finishApplyingContainerPatches on the diagram with a removal of the node
             //   2. finishApplyingContainerPatches on the list with a a removal of the item
             //   3. a single entry with updateTreeAfterSharedModelChangesInternal actions from the 

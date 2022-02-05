@@ -2,7 +2,7 @@ import { types, applySnapshot, IJsonPatch, applyPatch, Instance, getEnv, getPath
 import { ContainerAPI } from "./container-api";
 import { SharedModel } from "./shared-model/shared-model";
 import { createUndoRecorder, SharedModelsConfig } from "./undo-manager/undo-recorder";
-import { TileUndoEntry } from "./undo-manager/undo-store";
+import { TreeUndoEntry } from "./undo-manager/undo-store";
 
 export const Tree = types.model("Tree", {
     id: types.identifier
@@ -104,7 +104,7 @@ export const Tree = types.model("Tree", {
             createUndoRecorder(self, (entry) => {
                 console.log("recording undoable action", {treeId: self.id, ...entry});
                 undoStore.addUndoEntry(entry.containerActionId, 
-                    TileUndoEntry.create({
+                    TreeUndoEntry.create({
                         tileId: self.id, 
                         actionName: entry.actionName, 
                         patches: entry.patches, 
