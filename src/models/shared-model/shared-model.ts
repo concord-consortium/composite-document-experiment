@@ -57,7 +57,9 @@ export const SharedModel = types.model("SharedModel", {
             // make sure this snapshot is for our shared model and not some other
             // shared model
             if (snapshot.id !== self.id) {
-                console.log("tried to apply shared model snapshot from different tree", {selfId: self.id, snapshot});
+                console.warn("tried to apply shared model snapshot from different tree. " +
+                    "The container should be improved to not send these snapshots.", 
+                    {selfId: self.id, snapshot});
                 return Promise.resolve();
             }
             applySnapshot(self, snapshot);
