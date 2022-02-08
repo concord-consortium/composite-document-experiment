@@ -30,14 +30,14 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
       //    the tile views
       // If we support tiles having customized views of shared models then this will
       // need to become more complex.
-      const applyPromises = Object.entries(trees).map(tree => {
-        if (tree[0] === sourceTreeId) {
+      const applyPromises = Object.entries(trees).map(([treeId, tree]) => {
+        if (treeId === sourceTreeId) {
           return; 
         }
 
-        console.log(`repeating changes to ${tree[0]}`, snapshot);
+        console.log(`repeating changes to ${treeId}`, snapshot);
   
-        return tree[1].applySharedModelSnapshotFromContainer(containerActionId, snapshot);
+        return tree.applySharedModelSnapshotFromContainer(containerActionId, snapshot);
       });
       // The contract for this method is to return a Promise<void> so we need the extra
       // then() at the end to do this.
