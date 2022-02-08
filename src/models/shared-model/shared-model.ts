@@ -79,7 +79,7 @@ export const SharedModel = types.model("SharedModel", {
             // Without the changes in the code to address this, the problem can be shown by:
             // 1. adding a node
             // 2. move the new node to the top of the list
-            // 3. delete th node
+            // 3. delete the node
             // 4. undo the last change.
             // If the shared model is not sent to the tile soon enough, then the tiles delete their
             // copy of the node since it is not yet in the shared model view. This will happen when
