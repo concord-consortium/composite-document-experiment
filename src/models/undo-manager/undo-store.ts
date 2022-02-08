@@ -1,10 +1,5 @@
 import {
-    types,
-    IJsonPatch,
-    Instance,
-    getSnapshot,
-    getEnv,
-    flow
+    types, IJsonPatch, Instance, getSnapshot, getEnv, flow
 } from "mobx-state-tree";
 import { TreeLike } from "../tree-proxy";
 
