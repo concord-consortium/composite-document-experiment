@@ -311,8 +311,8 @@ An exception will be shown in the console because the keys of the elements in Re
 
 # Recreating Problematic async case 2
 
-With an artificial delay added to when the shared data model sends tells the
-container to update all tiles that are viewing it, a problem can occur. This is
+With an artificial delay added to when the shared data model tells the
+container to update all tiles that are viewing it, a problem can occur. This
 kind of delay seems unlikely since it seems in most cases shared models will be 
 running in the clue core.
 
