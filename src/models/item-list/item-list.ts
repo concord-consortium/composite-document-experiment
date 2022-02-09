@@ -11,7 +11,6 @@ export const ItemListItem = types.model("ItemListItem", {
         // It is annoying but it seems like the observers added by components fire
         // before the the onInvalidated is called, so then this derived value is
         // recomputed.
-        console.log("itemList.getName");
         const sharedItem = tryReference(() => self.sharedItem);
         return sharedItem ? sharedItem.name : "invalid ref";
         // The user should really never see this invalid ref

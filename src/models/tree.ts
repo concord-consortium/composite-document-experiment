@@ -2,7 +2,7 @@ import { types, applySnapshot, IJsonPatch, applyPatch, Instance, getEnv, getPath
 import { ContainerAPI } from "./container-api";
 import { SharedModel } from "./shared-model/shared-model";
 import { createUndoRecorder, SharedModelsConfig } from "./undo-manager/undo-recorder";
-import { TileUndoEntry } from "./undo-manager/undo-store";
+import { TreeUndoEntry } from "./undo-manager/undo-store";
 
 export const Tree = types.model("Tree", {
     id: types.identifier
@@ -104,11 +104,11 @@ export const Tree = types.model("Tree", {
             createUndoRecorder(self, (entry) => {
                 console.log("recording undoable action", {treeId: self.id, ...entry});
                 undoStore.addUndoEntry(entry.containerActionId, 
-                TileUndoEntry.create({
-                    tileId: self.id, 
-                    actionName: entry.actionName, 
-                    patches: entry.patches, 
-                    inversePatches: entry.inversePatches})
+                    TreeUndoEntry.create({
+                        tileId: self.id, 
+                        actionName: entry.actionName, 
+                        patches: entry.patches, 
+                        inversePatches: entry.inversePatches})
                 );
             }, false, sharedModelsConfig );
         },
@@ -155,11 +155,23 @@ export const Tree = types.model("Tree", {
                 return;
             }
             applySnapshot(model, snapshot);
+
+            // The contract is that the promise we return should not resolve
+            // until all of the changes have been applied to shared model.
+            // We should not wait until the tree has run 
+            // updateTreeAfterSharedModelChanges
+            // So we can just resolve immediately
+            return Promise.resolve();
         },
 
         // The container calls this before it calls applyPatchesFromUndo
         startApplyingContainerPatches() {
             self.applyingContainerPatches = true;
+
+            // We return a promise because the API is async
+            // The action itself doesn't do anything asynchronous though
+            // so it isn't necessary to use a flow
+            return Promise.resolve();
         },
 
         // This is defined as an action so it is clear that is part of the API
@@ -168,6 +180,10 @@ export const Tree = types.model("Tree", {
         // It might be called multiple times after startApplyingContainerPatches
         applyPatchesFromUndo(patchesToApply: readonly IJsonPatch[]) {
             applyPatch(self, patchesToApply);
+            // We return a promise because the API is async
+            // The action itself doesn't do anything asynchronous though
+            // so it isn't necessary to use a flow
+            return Promise.resolve();
         },
 
         // The container calls this after all patches have been applied
@@ -211,6 +227,11 @@ export const Tree = types.model("Tree", {
             // updateTreeAfterSharedModelChanges. And that will be likely to happen 
             // during development.
             self.updateTreeAfterSharedModelChanges();
+
+            // We return a promise because the API is async
+            // The action itself doesn't do anything asynchronous though
+            // so it isn't necessary to use a flow
+            return Promise.resolve();
         },
     };
     

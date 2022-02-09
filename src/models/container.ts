@@ -1,12 +1,13 @@
 // This model keeps the documents in sync
 
-import { Instance, types } from "mobx-state-tree";
+import { types } from "mobx-state-tree";
 import { DQRoot } from "./diagram/dq-root";
 import { ItemList } from "./item-list/item-list";
 import { SharedModel } from "./shared-model/shared-model";
 import { Tree } from "./tree";
 import { ContainerAPI } from "./container-api";
 import { UndoStore } from "./undo-manager/undo-store";
+import { TreeLike, TreeProxy } from "./tree-proxy";
 
 export const Container = ({initialDiagram, initialItemList, initialSharedModel}: any) => {
   
@@ -29,13 +30,18 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
       //    the tile views
       // If we support tiles having customized views of shared models then this will
       // need to become more complex.
-      for (const tree of Object.entries(trees)) {
-        if (tree[0] === sourceTreeId) continue;
+      const applyPromises = Object.entries(trees).map(([treeId, tree]) => {
+        if (treeId === sourceTreeId) {
+          return; 
+        }
+
+        console.log(`repeating changes to ${treeId}`, snapshot);
   
-        console.log(`repeating changes to ${tree[0]}`, snapshot);
-  
-        tree[1].applySharedModelSnapshotFromContainer(containerActionId, snapshot);
-      }
+        return tree.applySharedModelSnapshotFromContainer(containerActionId, snapshot);
+      });
+      // The contract for this method is to return a Promise<void> so we need the extra
+      // then() at the end to do this.
+      return Promise.all(applyPromises).then();
     }
   };
 
@@ -46,7 +52,14 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
   const sharedModel = SharedModelTree.create(initialSharedModel, {undoStore, containerAPI});
   sharedModel.setupUndoRecorder();
 
-  const trees: Record<string, Instance<typeof Tree>> = {diagram, itemList, sharedModel};
+  // wrap the diagram and itemList in proxies to emulate what happens
+  // if they were running in iframes
+  // TODO: these models should not have direct access to the undoStore and containerAPI
+  const diagramProxy = new TreeProxy(diagram);
+  const itemListProxy = new TreeProxy(itemList);
+
+  const trees: Record<string, TreeLike> = {diagram: diagramProxy, itemList: itemListProxy, sharedModel};
+  // const trees: Record<string, TreeLike> = {diagram, itemList, sharedModel};
 
   return {diagram, itemList, sharedModel, undoStore};
 };
