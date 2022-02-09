@@ -81,6 +81,13 @@ const trees = Container({
 (window as any).trees = trees;
 (window as any).getSnapshot = getSnapshot;
 
+const copyDiagramURL = () => {
+    const exportedDocument = getSnapshot(trees.undoStore);
+    console.log({exportedDocument});
+    url.searchParams.set("document", JSON.stringify(exportedDocument));
+    console.log(url.href);
+    navigator.clipboard.writeText(url.href);
+};
 
 // Next step:
 // 
@@ -102,6 +109,9 @@ const trees = Container({
 export const App = () => {
   return (
     <div className="app">
+      <div id="containerMenu">
+        <button className="action" onClick={copyDiagramURL}>Copy Diagram URL</button>
+      </div>
       <Diagram dqRoot={trees.diagram} />
       <ItemList itemList={trees.itemList} />
     </div>
