@@ -1,7 +1,7 @@
 import {
     types, IJsonPatch, Instance, getSnapshot, getEnv, flow
 } from "mobx-state-tree";
-import { TreeLike } from "../tree-proxy";
+import { TreeAPI } from "../tree-api";
 
 // I don't know if it is worth making this a MST model
 // we aren't planning to save the undo stack across sessions
@@ -35,7 +35,7 @@ enum OperationType {
 }
 
 interface Environment {
-    getTreeFromId: (treeId: string) => TreeLike;
+    getTreeFromId: (treeId: string) => TreeAPI;
 }
 
 export const UndoStore = types
