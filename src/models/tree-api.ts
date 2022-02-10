@@ -4,10 +4,10 @@ import { IJsonPatch } from "mobx-state-tree";
  * This is the API for a Tree in the system.
  *
  * It would typically be implemented by a MST model that defines actions for
- * each fo the functions below.
+ * each of the functions below.
  *
  * Each action should return a promise that resolves when the action is complete
- * this is necessary to support tress running in iframes or workers. The
+ * this is necessary to support trees running in iframes or workers. The
  * function comment should define what "complete" means for each action.
  */
 
@@ -20,7 +20,7 @@ export interface TreeAPI {
      * @returns a promise that should resolve when the tree is ready to receive
      * patches from the container and changes in the shared models.
      *
-     * The `Tree` model implements for you.
+     * The `Tree` model implements this for you.
      */
     startApplyingContainerPatches(): Promise<void>;
 
@@ -39,7 +39,7 @@ export interface TreeAPI {
     applyPatchesFromUndo(patchesToApply: readonly IJsonPatch[]): Promise<void>;
 
     /**
-     * This called after the container has applied all of the undo patches.
+     * This is called after the container has applied all of the undo patches.
      * Before this is called by the container, all trees modified by the patches
      * will have confirmed they have received the patches. And all shared models
      * modified by the patches will have confirmed that trees using them have
@@ -90,7 +90,7 @@ export interface TreeAPI {
      * send the whole shared model. In the future, for some shared models, the
      * snapshot might represent the subset of the shared model that this tree
      * needs. For example with a data set shared model it could include just the
-     * column data being used by this tree.
+     * column of data being used by this tree.
      */
     applySharedModelSnapshotFromContainer(containerActionId: string, snapshot: any): Promise<void>;
 }
