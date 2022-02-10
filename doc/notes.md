@@ -354,3 +354,22 @@ shared model changes have been applied.
 
 TODO: it seems like there might be a case where the promise chain could get really
 long. I want to trace this through to see how long this could get.
+
+# Saving state
+
+What I want to do is have a single container api for the tiles to send changes
+to.
+The changes can be flagged if they should be undoable or not.
+
+To optimize memory the container can store a single copy of the change entry,
+but because this is a prototype it is probably easier to just maintain two
+separate copies of the changes. We want them independent parts of the tree so we
+can get a snapshot of just the fullHistory part of the tree.
+
+This also means the undoStore is no longer an undo store. It is now more like a
+document store that has an undo stack section.
+
+When we undo and redo we could record these things into the documentStore
+directly without requiring the trees to send updated patches. But it seems
+better to let the trees do this just incase something applies different when the
+patch is applied to the actual tree.

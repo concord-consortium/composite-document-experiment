@@ -24,7 +24,7 @@ export const TreeUndoEntry = types.model("TreeUndoEntry", {
     }
 }));
 
-const UndoEntry = types.model("UndoEntry", {
+export const UndoEntry = types.model("UndoEntry", {
     containerActionId: types.identifier,
     treeEntries: types.array(TreeUndoEntry)
 });
@@ -138,6 +138,9 @@ export const UndoStore = types
                 const entryToUndo = self.history[self.undoIdx -1];
                 // TODO: If there is an applyPatchesToTrees currently running we
                 // should wait for it.
+                //
+                // FIXME: we aren't actually calling this as an action and we
+                // aren't waiting for it finish before returning
                 applyPatchesToTrees(entryToUndo, OperationType.Undo);
 
                 self.undoIdx--;
@@ -150,6 +153,9 @@ export const UndoStore = types
                 const entryToRedo = self.history[self.undoIdx];
                 // TODO: If there is an applyPatchesToTrees currently running we
                 // should wait for it.
+                //
+                // FIXME: we aren't actually calling this as an action and we
+                // aren't waiting for it finish before returning
                 applyPatchesToTrees(entryToRedo, OperationType.Redo);
     
                 self.undoIdx++;

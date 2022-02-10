@@ -1,6 +1,6 @@
 // This model keeps the documents in sync
 
-import { Instance, types } from "mobx-state-tree";
+import { applySnapshot, getSnapshot, Instance, types } from "mobx-state-tree";
 import { DQRoot } from "./diagram/dq-root";
 import { ItemList } from "./item-list/item-list";
 import { SharedModel } from "./shared-model/shared-model";
@@ -9,14 +9,32 @@ import { ContainerAPI } from "./container-api";
 import { TreeUndoEntry, UndoStore } from "./undo-manager/undo-store";
 import { TreeProxy } from "./tree-proxy";
 import { TreeAPI } from "./tree-api";
+import { DocumentStore } from "./document-store";
 
-export const Container = ({initialDiagram, initialItemList, initialSharedModel}: any) => {
-  
+enum DocType {
+  SNAPSHOT,
+  HISTORY
+}
+
+function docType(initialDocument: any): DocType {
+  if (initialDocument.history) {
+    return DocType.HISTORY;
+  }
+
+  return DocType.SNAPSHOT;
+}
+
+export const Container = (initialDocument: any) => {
+
   const getTreeFromId = (treeId: string) => {
     return trees[treeId];
   };
 
   const undoStore = UndoStore.create({}, {
+    getTreeFromId,
+  });
+
+  const documentStore = DocumentStore.create(initialDocument, {
     getTreeFromId,
   });
 
@@ -44,17 +62,22 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
       // then() at the end to do this.
       return Promise.all(applyPromises).then();
     },
-    addUndoEntry: (containerActionId: string, treeUndoEntry: Instance<typeof TreeUndoEntry>) => {
-      undoStore.addUndoEntry(containerActionId, treeUndoEntry);
+    addUndoEntry: (containerActionId: string, treeUndoEntry: Instance<typeof TreeUndoEntry>, undoableAction: boolean) => {
+      // clone didn't seem to work here for some reason.
+      const undoEntrySnapshot = getSnapshot(treeUndoEntry);
+      if (undoableAction) {
+        undoStore.addUndoEntry(containerActionId, TreeUndoEntry.create(undoEntrySnapshot));
+      } 
+
+      documentStore.addUndoEntry(containerActionId, TreeUndoEntry.create(undoEntrySnapshot));
     }
   };
 
-  const diagram = DQRoot.create(initialDiagram, {containerAPI});
-  const itemList = ItemList.create(initialItemList, {containerAPI});
+  const diagram = DQRoot.create({id: "diagram", sharedModel: {id: "sharedModel"}},{containerAPI});
+  const itemList = ItemList.create({id: "itemList", sharedModel: {id: "sharedModel"}},{containerAPI});
 
   const SharedModelTree = types.compose(Tree, SharedModel);
-  const sharedModel = SharedModelTree.create(initialSharedModel, {containerAPI});
-  sharedModel.setupUndoRecorder();
+  const sharedModel = SharedModelTree.create({id: "sharedModel"}, {containerAPI});
 
   // wrap the diagram and itemList in proxies to emulate what happens
   // if they were running in iframes
@@ -65,5 +88,34 @@ export const Container = ({initialDiagram, initialItemList, initialSharedModel}:
   const trees: Record<string, TreeAPI> = {diagram: diagramProxy, itemList: itemListProxy, sharedModel};
   // const trees: Record<string, TreeLike> = {diagram, itemList, sharedModel};
 
-  return {diagram, itemList, sharedModel, undoStore};
+  Promise.resolve()
+  .then(async () => {
+    switch (docType(initialDocument)) {
+      case DocType.SNAPSHOT: 
+        applySnapshot(diagram, initialDocument.diagram);
+        applySnapshot(itemList, initialDocument.itemList);
+        applySnapshot(sharedModel, initialDocument.sharedModel);
+        break;
+      case DocType.HISTORY:
+        
+        await documentStore.replayHistoryToTrees(trees);
+        break;
+    }  
+  })
+  .then(() => {
+    // TODO: the container should probably not call this directly on the trees
+    // instead it should be some action that indicates the initialization is done
+    // then the trees can call this themselves.
+    //
+    // CHECKME: the functions used by replyHistoryToTrees might fail if the undo
+    // recorder is not setup.
+    sharedModel.setupUndoRecorder();
+    diagram.setupUndoRecorder();
+    itemList.setupUndoRecorder();
+  });
+
+  // FIXME we are returning here before things are ready to be used.
+  // I'm not sure yet the best way to handle this, but we are also going to run
+  // into this problem when applying patches from other users
+  return {diagram, itemList, sharedModel, undoStore, documentStore};
 };

@@ -84,7 +84,7 @@ export const ItemList = Tile.named("ItemList")
 
     afterCreate() {
         self.addSharedModel(self.sharedModel);
-        self.setupUndoRecorder();
+        // self.setupUndoRecorder();
     },
     
 }));

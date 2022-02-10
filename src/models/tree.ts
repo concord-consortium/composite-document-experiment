@@ -107,7 +107,8 @@ export const Tree = types.model("Tree", {
                         tileId: self.id, 
                         actionName: entry.actionName, 
                         patches: entry.patches, 
-                        inversePatches: entry.inversePatches})
+                        inversePatches: entry.inversePatches}),
+                    entry.undoableAction 
                 );
             }, false, sharedModelsConfig );
         },

@@ -116,7 +116,7 @@ export const DQRoot = Tile.named("DQRoot")
 
     afterCreate() {
         self.addSharedModel(self.sharedModel);
-        self.setupUndoRecorder();
+        // self.setupUndoRecorder();
     },
 
 }));

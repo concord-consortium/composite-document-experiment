@@ -36,5 +36,5 @@ export interface ContainerAPI {
      * either it should always be a snapshot, or the api should accept models
      * and snapshots.
      */
-    addUndoEntry: (containerActionId: string, treeUndoEntry: Instance<typeof TreeUndoEntry>) => void;
+    addUndoEntry: (containerActionId: string, treeUndoEntry: Instance<typeof TreeUndoEntry>, undoableAction: boolean) => void;
 }

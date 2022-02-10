@@ -11,56 +11,60 @@ const url = new URL(window.location.href);
 const loadInitialState = () => {
   const urlDocument = url.searchParams.get("document");
   
-  // Default diagram
-  let document = {
-    sharedModel: {
-      id: "sharedModel",
-      allItems: {
-        "1": {
-          id: "1",
-          name: "A"
-        }
-      }
-    },
-    diagram: {
-      id: "diagram",
-      sharedModel: {
-        id: "sharedModel",
-        allItems: {
-          "1": {
-            id: "1",
-            name: "A"
-          }
-        }  
-      },
-      nodes: {
-        "1": {
-            id: "1",
-            sharedItem: "1",
-            x: 100,
-            y: 100       
-        }
-      }
-    },
-    itemList: {
-      id: "itemList",
-      sharedModel: {
-        id: "sharedModel",
-        allItems: {
-          "1": {
-            id: "1",
-            name: "A"
-          }
-        }  
-      },
-      allItems: [
-        {
-          id: "1",
-          sharedItem: "1"
-        }
-      ]
-    }
-  };
+  // Default diagram from before
+  // let document = {
+  //   sharedModel: {
+  //     id: "sharedModel",
+  //     allItems: {
+  //       "1": {
+  //         id: "1",
+  //         name: "A"
+  //       }
+  //     }
+  //   },
+  //   diagram: {
+  //     id: "diagram",
+  //     sharedModel: {
+  //       id: "sharedModel",
+  //       allItems: {
+  //         "1": {
+  //           id: "1",
+  //           name: "A"
+  //         }
+  //       }  
+  //     },
+  //     nodes: {
+  //       "1": {
+  //           id: "1",
+  //           sharedItem: "1",
+  //           x: 100,
+  //           y: 100       
+  //       }
+  //     }
+  //   },
+  //   itemList: {
+  //     id: "itemList",
+  //     sharedModel: {
+  //       id: "sharedModel",
+  //       allItems: {
+  //         "1": {
+  //           id: "1",
+  //           name: "A"
+  //         }
+  //       }  
+  //     },
+  //     allItems: [
+  //       {
+  //         id: "1",
+  //         sharedItem: "1"
+  //       }
+  //     ]
+  //   }
+  // };
+
+  // Empty default document, we don't yet support starting out with a document
+  // snapshot since that default default isn't included in the history yet.
+  let document = { history: [] };
 
   // Override default diagram with URL param
   if (urlDocument) {
@@ -71,18 +75,14 @@ const loadInitialState = () => {
 };
 
 const initialState = loadInitialState();
-const trees = Container({
-  initialSharedModel: initialState.sharedModel,
-  initialDiagram: initialState.diagram,
-  initialItemList: initialState.itemList
-});
+const trees = Container(initialState);
 
 // For debugging
 (window as any).trees = trees;
 (window as any).getSnapshot = getSnapshot;
 
 const copyDiagramURL = () => {
-    const exportedDocument = getSnapshot(trees.undoStore);
+    const exportedDocument = getSnapshot(trees.documentStore);
     console.log({exportedDocument});
     url.searchParams.set("document", JSON.stringify(exportedDocument));
     console.log(url.href);

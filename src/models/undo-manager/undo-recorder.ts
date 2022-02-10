@@ -12,7 +12,8 @@ export interface RecordedEntry {
     containerActionId: string,
     actionName: string,
     patches: ReadonlyArray<IJsonPatch>,
-    inversePatches: ReadonlyArray<IJsonPatch>
+    inversePatches: ReadonlyArray<IJsonPatch>,
+    undoableAction: boolean
 }
 
 interface CallEnv {
@@ -74,9 +75,7 @@ export const createUndoRecorder = (targetStore: IAnyStateTreeNode, onRecorded: (
             const recorder = recordPatches(
                 call.tree,
                 (_patch, _inversePatch, actionContext) => {
-                    // We skip recording when we are applying patches from the undo store
-                    // these could be undo or redo patches
-                    if (recordingDisabled || call.name === "applyPatchesFromUndo") {
+                    if (recordingDisabled) {
                         return false;
                     }
 
@@ -119,7 +118,8 @@ export const createUndoRecorder = (targetStore: IAnyStateTreeNode, onRecorded: (
             recorder.stop();
 
             if (error === undefined) {
-                addUndoState(recorder, call.name, containerActionId);
+                const undoableAction = call.name !== "applyPatchesFromUndo";
+                addUndoState(recorder, call.name, containerActionId, undoableAction);
                 // Call the shared model notification function if there are changes. 
                 // This is needed so the changes can be sent to the container,
                 // and so the changes can trigger a update/sync of the tile model
@@ -180,19 +180,20 @@ export const createUndoRecorder = (targetStore: IAnyStateTreeNode, onRecorded: (
     // ge a good thing to do.
     addDisposer(targetStore, middlewareDisposer);
 
-    const addUndoState = (recorder: IPatchRecorder, actionName: string, containerActionId: string) => {
+    const addUndoState = (recorder: IPatchRecorder, actionName: string, 
+        containerActionId: string, undoableAction: boolean) => {
         if (recorder.patches.length === 0) {
             // skip recording if patches is empty
             return;
         }
 
-        // Instead of pushing to the history it might be better if this had a 
-        // handler that was sent the new entry
+        // Send the new entry to the handler
         onRecorded({
             containerActionId,
             actionName,
             patches: recorder.patches,
-            inversePatches: recorder.inversePatches
+            inversePatches: recorder.inversePatches,
+            undoableAction
         });
     };
 
