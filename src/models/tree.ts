@@ -33,7 +33,6 @@ export const Tree = types.model("Tree", {
         // will need to support shared models being added later on
         // so maybe something else should happen here
         setupUndoRecorder() {
-            const {undoStore} = getEnv(self);
 
             // TODO: If shared models are mounted after the undoRecorder has been created 
             // the map of shared in the recorder needs to be updated.
@@ -103,7 +102,7 @@ export const Tree = types.model("Tree", {
             // destroyed 
             createUndoRecorder(self, (entry) => {
                 console.log("recording undoable action", {treeId: self.id, ...entry});
-                undoStore.addUndoEntry(entry.containerActionId, 
+                containerAPI().addUndoEntry(entry.containerActionId, 
                     TreeUndoEntry.create({
                         tileId: self.id, 
                         actionName: entry.actionName, 
