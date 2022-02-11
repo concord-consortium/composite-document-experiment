@@ -1,5 +1,5 @@
 import {
-    types, Instance, flow, getEnv
+    types, Instance, flow, getEnv, IJsonPatch
 } from "mobx-state-tree";
 import { TreeAPI } from "./tree-api";
 import { TreeUndoEntry, UndoEntry } from "./undo-manager/undo-store";
@@ -43,35 +43,36 @@ export const DocumentStore = types
             // apply the patches to all trees
 
             // iterate initialDocument.history
-            // It isn't efficient, but I'm going to try 'yielding' on each top
-            // level entry. This way the syncrhounousness will be closer to what
-            // happens during an undo.
-            for ( const entry of self.history) {
-                const applyPromises = entry.treeEntries.map(treeEntry => {
-                    // When a patch is applied to shared model, it will send its updated
-                    // state to all tiles. If this is working properly the promise returned by
-                    // the shared model's applyPatchesFromUndo will not resolve until all tiles
-                    // using it have updated their view of the shared model.
-                    const tree = getTreeFromId(treeEntry.tileId);
-                    if (!tree) {
-                        throw new Error(`History contains tree that isn't available. id: ${treeEntry.tileId}`);
-                    }
+            // Because sending a few patches at a time and waiting for
+            // confirmation that they have been applied is limited by the
+            // latency of the connection. This code groups all of the patches
+            // for a particular tree into one array and then sends that single
+            // array to the tree.
+            //
+            // This single array of changes might be a problem for large
+            // documents so we might have to page the array, and send
+            // information about the order of the pages so the tree receiving
+            // them can make sure it is getting them in the right order.
+            //
+            const treePatches: Record<string, IJsonPatch[] | undefined> = {};
+            Object.keys(treeMap).forEach(treeId => treePatches[treeId] = []);
 
-                    // FIXME: this is a hack, we are using this function in a
-                    // way it wasn't intended. It should be OK because we
-                    // calling start first and finish after but this isn't
-                    // really a patch from an undo.
-                    //
-                    // However, this is inefficient because we are waiting for
-                    // confirmation from the tree after applying each of the
-                    // sets of patches. So that means the total time will be the
-                    // latency * number of entries We could easily get into the
-                    // thousands of entries case, so that can take many seconds
-                    // to replay. 
-                    return tree.applyPatchesFromUndo(treeEntry.patches);
+            self.history.forEach(entry => {
+                entry.treeEntries.forEach(treeEntry => {
+                    const patches = treePatches[treeEntry.tileId];
+                    patches?.push(...treeEntry.patches);
                 });
-                yield Promise.all(applyPromises);    
-            }
+            });
+
+            console.log(treePatches);
+
+            const applyPromises = Object.entries(treePatches).map(([treeId, patches]) => {
+                if (patches && patches.length > 0) {
+                    const tree = getTreeFromId(treeId);
+                    return tree?.applyPatchesFromUndo(patches);
+                } 
+            });
+            yield Promise.all(applyPromises);
   
 
             // finish the patch application
