@@ -8,7 +8,7 @@ import { TreeAPI } from "../tree-api";
 // But this approach lets me follow a pattern common to the 
 // rest of the code. 
 export const TreeUndoEntry = types.model("TreeUndoEntry", {
-    tileId: types.string,
+    treeId: types.string,
     actionName: types.string,
     patches: types.frozen<ReadonlyArray<IJsonPatch>>(),
     inversePatches: types.frozen<ReadonlyArray<IJsonPatch>>()
@@ -69,7 +69,7 @@ export const UndoStore = types
 
             // first disable shared model syncing in the tree
             const startPromises = treeEntries.map(treeEntry => {
-                return getTreeFromId(treeEntry.tileId).startApplyingContainerPatches();
+                return getTreeFromId(treeEntry.treeId).startApplyingContainerPatches();
             });
             yield Promise.all(startPromises);
 
@@ -80,7 +80,7 @@ export const UndoStore = types
                 // state to all tiles. If this is working properly the promise returned by
                 // the shared model's applyPatchesFromUndo will not resolve until all tiles
                 // using it have updated their view of the shared model.
-                return getTreeFromId(treeEntry.tileId).applyPatchesFromUndo(treeEntry.getPatches(opType));
+                return getTreeFromId(treeEntry.treeId).applyPatchesFromUndo(treeEntry.getPatches(opType));
             });
             yield Promise.all(applyPromises);
 
@@ -91,7 +91,7 @@ export const UndoStore = types
             // This can be used in the future to make sure multiple applyPatchesToTrees are not 
             // running at the same time.
             const finishPromises = treeEntries.map(treeEntry => {
-                return getTreeFromId(treeEntry.tileId).finishApplyingContainerPatches();
+                return getTreeFromId(treeEntry.treeId).finishApplyingContainerPatches();
             });
             // I'm using a yield because it isn't clear from the docs if an flow MST action
             // can return a promise or not.

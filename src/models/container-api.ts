@@ -1,5 +1,11 @@
-import { Instance } from "mobx-state-tree";
-import { TreeUndoEntry } from "./undo-manager/undo-store";
+import { IJsonPatch } from "mobx-state-tree";
+
+export interface TreeChangeEntry {
+    treeId: string;
+    actionName: string;
+    patches: readonly IJsonPatch[];
+    inversePatches: readonly IJsonPatch[];
+}
 
 export interface ContainerAPI {
     /**
@@ -36,5 +42,5 @@ export interface ContainerAPI {
      * either it should always be a snapshot, or the api should accept models
      * and snapshots.
      */
-    addUndoEntry: (containerActionId: string, treeUndoEntry: Instance<typeof TreeUndoEntry>, undoableAction: boolean) => void;
+    addUndoEntry: (containerActionId: string, treeChangeEntry: TreeChangeEntry, undoableAction: boolean) => void;
 }

@@ -1,11 +1,11 @@
 // This model keeps the documents in sync
 
-import { applySnapshot, getSnapshot, Instance, types } from "mobx-state-tree";
+import { applySnapshot, types } from "mobx-state-tree";
 import { DQRoot } from "./diagram/dq-root";
 import { ItemList } from "./item-list/item-list";
 import { SharedModel } from "./shared-model/shared-model";
 import { Tree } from "./tree";
-import { ContainerAPI } from "./container-api";
+import { ContainerAPI, TreeChangeEntry } from "./container-api";
 import { TreeUndoEntry, UndoStore } from "./undo-manager/undo-store";
 import { TreeProxy } from "./tree-proxy";
 import { TreeAPI } from "./tree-api";
@@ -62,14 +62,12 @@ export const Container = (initialDocument: any) => {
       // then() at the end to do this.
       return Promise.all(applyPromises).then();
     },
-    addUndoEntry: (containerActionId: string, treeUndoEntry: Instance<typeof TreeUndoEntry>, undoableAction: boolean) => {
-      // clone didn't seem to work here for some reason.
-      const undoEntrySnapshot = getSnapshot(treeUndoEntry);
+    addUndoEntry: (containerActionId: string, treeChangeEntry: TreeChangeEntry, undoableAction: boolean) => {
       if (undoableAction) {
-        undoStore.addUndoEntry(containerActionId, TreeUndoEntry.create(undoEntrySnapshot));
+        undoStore.addUndoEntry(containerActionId, TreeUndoEntry.create(treeChangeEntry));
       } 
 
-      documentStore.addUndoEntry(containerActionId, TreeUndoEntry.create(undoEntrySnapshot));
+      documentStore.addUndoEntry(containerActionId, TreeUndoEntry.create(treeChangeEntry));
     }
   };
 

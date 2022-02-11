@@ -59,7 +59,7 @@ export const DocumentStore = types
 
             self.history.forEach(entry => {
                 entry.treeEntries.forEach(treeEntry => {
-                    const patches = treePatches[treeEntry.tileId];
+                    const patches = treePatches[treeEntry.treeId];
                     patches?.push(...treeEntry.patches);
                 });
             });

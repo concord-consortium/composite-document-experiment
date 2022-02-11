@@ -3,12 +3,11 @@ import {
     IPatchRecorder,
     createActionTrackingMiddleware2, flow,
     addMiddleware,
-    addDisposer, isActionContextThisOrChildOf, IActionTrackingMiddleware2Call, Instance, getSnapshot
+    addDisposer, isActionContextThisOrChildOf, IActionTrackingMiddleware2Call, Instance
 } from "mobx-state-tree";
 import { v4 as uuidv4 } from "uuid";
-import { ContainerAPI } from "../container-api";
+import { ContainerAPI, TreeChangeEntry } from "../container-api";
 import { Tree } from "../tree";
-import { TreeUndoEntry } from "./undo-store";
 
 interface CallEnv {
     recorder: IPatchRecorder;
@@ -182,14 +181,14 @@ export const createUndoRecorder = (tree: Instance<typeof Tree>, container: Conta
         }
 
         // Send new entry to the container
-        const treeUndoEntry = TreeUndoEntry.create({
-            tileId: tree.id,
+        const treeChangeEntry: TreeChangeEntry = {
+            treeId: tree.id,
             actionName,
             patches: recorder.patches,
             inversePatches: recorder.inversePatches,
-        });
-        console.log("recording undoable action", getSnapshot(treeUndoEntry));
-        container.addUndoEntry(containerActionId, treeUndoEntry, undoableAction);
+        };
+        console.log("recording undoable action", treeChangeEntry);
+        container.addUndoEntry(containerActionId, treeChangeEntry, undoableAction);
     };
 
     return {
