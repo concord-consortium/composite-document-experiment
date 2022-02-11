@@ -2,11 +2,16 @@ import {
     types, Instance, flow, getEnv, IJsonPatch
 } from "mobx-state-tree";
 import { TreeAPI } from "./tree-api";
-import { TreeUndoEntry, UndoEntry } from "./undo-manager/undo-store";
+import { TreeUndoEntry, UndoEntry, UndoStore } from "./undo-manager/undo-store";
 
 interface Environment {
     getTreeFromId: (treeId: string) => TreeAPI | undefined;
 }
+
+export const CDocument = types
+    .model("CDocument", {
+        history: types.array(UndoEntry)
+    });
 
 // TODO: since we are sharing the types with the undo store we should give them
 // more generic names.
@@ -16,11 +21,12 @@ interface Environment {
 // UndoEntries in this model. 
 export const DocumentStore = types
     .model("DocumentStore", {
-        history: types.array(UndoEntry)
+        document: CDocument,
+        undoStore: UndoStore,
     })
     .views((self) => ({
         undoEntry(containerActionId: string) {
-            return self.history.find(entry => entry.containerActionId === containerActionId);
+            return self.document.history.find(entry => entry.containerActionId === containerActionId);
         }
     }))
     .actions((self) => {
@@ -57,7 +63,7 @@ export const DocumentStore = types
             const treePatches: Record<string, IJsonPatch[] | undefined> = {};
             Object.keys(treeMap).forEach(treeId => treePatches[treeId] = []);
 
-            self.history.forEach(entry => {
+            self.document.history.forEach(entry => {
                 entry.treeEntries.forEach(treeEntry => {
                     const patches = treePatches[treeEntry.treeId];
                     patches?.push(...treeEntry.patches);
@@ -92,16 +98,20 @@ export const DocumentStore = types
 
         return {
             
-            addUndoEntry(containerActionId: string, treeUndoEntry: Instance<typeof TreeUndoEntry>) {
+            addUndoEntry(containerActionId: string, undoable: boolean, treeUndoEntry: Instance<typeof TreeUndoEntry>) {
                 // Find if there is already an UndoEntry with this containerActionId
                 let entry = self.undoEntry(containerActionId);
                 if (!entry) {
                     // This is a new user action
                     entry = UndoEntry.create({containerActionId});
-                    self.history.push(entry);
+                    self.document.history.push(entry);
                 }
 
-                entry.treeEntries.push(treeUndoEntry);    
+                entry.treeEntries.push(treeUndoEntry);
+
+                if (undoable) {
+                    self.undoStore.addUndoEntry(entry);
+                }
             },
             replayHistoryToTrees
         };

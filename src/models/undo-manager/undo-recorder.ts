@@ -188,7 +188,7 @@ export const createUndoRecorder = (tree: Instance<typeof Tree>, container: Conta
             inversePatches: recorder.inversePatches,
         };
         console.log("recording undoable action", treeChangeEntry);
-        container.addUndoEntry(containerActionId, treeChangeEntry, undoableAction);
+        container.recordChangeEntry(containerActionId, treeChangeEntry, undoableAction);
     };
 
     return {

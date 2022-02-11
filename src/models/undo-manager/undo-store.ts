@@ -40,7 +40,7 @@ interface Environment {
 
 export const UndoStore = types
     .model("UndoStore", {
-        history: types.array(UndoEntry),
+        history: types.array(types.reference(UndoEntry)),
         undoIdx: 0
     })
     .views((self) => ({
@@ -99,27 +99,29 @@ export const UndoStore = types
         });
 
         return {
-            addUndoEntry(containerActionId: string, treeUndoEntry: Instance<typeof TreeUndoEntry>) {
-                // Originally this skipped entries with no patches, we are assuming the caller
-                // already did that
-    
-                // Find if there is already an UndoEntry with this containerActionId
-                let entry = self.undoEntry(containerActionId);
-                if (!entry) {
+            addUndoEntry(undoEntry: Instance<typeof UndoEntry>) {
+                // Find if there is already an UndoEntry with this
+                // containerActionId. This action is called each time new
+                // changes are added to the undoEntry, and we don't want
+                // duplicates.
+                
+                const existingEntry = self.undoEntry(undoEntry.containerActionId);
+                if (!existingEntry) {
                     // This is a new user action, so if they had undone some amount already
                     // we delete the part of the history that was past this undone point
-                    // NOTE: when we are recording the full history so researchers can play it
-                    // back we might not want to delete it this way. 
-                    // Or perhaps we want to record that a different way
                     self.history.splice(self.undoIdx);
-                    entry = UndoEntry.create({containerActionId});
-                    self.history.push(entry);
+                    self.history.push(undoEntry);
                 }
     
-                entry.treeEntries.push(treeUndoEntry);
-    
-                // reset the undoIdx to the end of the history, this is because it is a 
-                // new user action so anything past this point can no longer be redone
+                // Reset the undoIdx to the end of the history, this is because it is a 
+                // user action so if the user had been undoing things, once they
+                // start doing new things they can no longer 'redo' what was
+                // undone before.
+                // 
+                // The fact that the undoIdx is reset in all cases even
+                // with an existing entry is confusing. This currently happens
+                // because the system might add additional patches to a previous
+                // entry, and might mean that a redo won't work as expected.
                 self.undoIdx = self.history.length;
             },
     

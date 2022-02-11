@@ -6,7 +6,7 @@ import { ItemList } from "./item-list/item-list";
 import { SharedModel } from "./shared-model/shared-model";
 import { Tree } from "./tree";
 import { ContainerAPI, TreeChangeEntry } from "./container-api";
-import { TreeUndoEntry, UndoStore } from "./undo-manager/undo-store";
+import { TreeUndoEntry } from "./undo-manager/undo-store";
 import { TreeProxy } from "./tree-proxy";
 import { TreeAPI } from "./tree-api";
 import { DocumentStore } from "./document-store";
@@ -30,13 +30,11 @@ export const Container = (initialDocument: any) => {
     return trees[treeId];
   };
 
-  const undoStore = UndoStore.create({}, {
+  const documentStore = DocumentStore.create({document: initialDocument, undoStore: {}}, {
     getTreeFromId,
   });
 
-  const documentStore = DocumentStore.create(initialDocument, {
-    getTreeFromId,
-  });
+  const undoStore = documentStore.undoStore;
 
   const containerAPI: ContainerAPI = {
     updateSharedModel: (containerActionId: string, sourceTreeId: string, snapshot: any) => {
@@ -62,14 +60,33 @@ export const Container = (initialDocument: any) => {
       // then() at the end to do this.
       return Promise.all(applyPromises).then();
     },
-    addUndoEntry: (containerActionId: string, treeChangeEntry: TreeChangeEntry, undoableAction: boolean) => {
-      if (undoableAction) {
-        undoStore.addUndoEntry(containerActionId, TreeUndoEntry.create(treeChangeEntry));
-      } 
+    recordChangeEntry: (containerActionId: string, treeChangeEntry: TreeChangeEntry, undoableAction: boolean) => {
+      documentStore.addUndoEntry(containerActionId, undoableAction, TreeUndoEntry.create(treeChangeEntry));
+    },
+  //   recordActionStart: (containerActionId: string, treeId: string, actionName: string, undoable: boolean) => {
+  //     const treeChangeEntry: TreeChangeEntry = {
+  //       treeId,
+  //       actionName,
+  //       patches: [],
+  //       inversePatches: []
+  //     };
+  //     if (undoable) {
+  //       // FIXME: it is possible some action changes came in before the action
+  //       // start. So we should look in the documentStore for this action just in
+  //       // case and then copy any changes to the undoStore
+  //       // This would also be solved if the two stores shared the list of
+  //       // actions, and the undoStore just had pointers into this shared list.        
+  //       undoStore.addUndoEntry(containerActionId, TreeUndoEntry.create(treeChangeEntry));
+  //     }
 
-      documentStore.addUndoEntry(containerActionId, TreeUndoEntry.create(treeChangeEntry));
-    }
-  };
+  //     documentStore.addUndoEntry(containerActionId, TreeUndoEntry.create(treeChangeEntry));
+  //   },
+  //   recordActionChanges: (containerActionId: string, treeChangeEntry: TreeChangeEntry) => {
+  //     // FIXME: we should add this to the undoStore too, but only if it is an
+  //     // undoable action.
+  //     documentStore.addUndoEntry(containerActionId, TreeUndoEntry.create(treeChangeEntry));
+  //   }
+   };
 
   const diagram = DQRoot.create({id: "diagram", sharedModel: {id: "sharedModel"}},{containerAPI});
   const itemList = ItemList.create({id: "itemList", sharedModel: {id: "sharedModel"}},{containerAPI});

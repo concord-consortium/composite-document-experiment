@@ -82,7 +82,7 @@ const trees = Container(initialState);
 (window as any).getSnapshot = getSnapshot;
 
 const copyDiagramURL = () => {
-    const exportedDocument = getSnapshot(trees.documentStore);
+    const exportedDocument = getSnapshot(trees.documentStore.document);
     console.log({exportedDocument});
     url.searchParams.set("document", JSON.stringify(exportedDocument));
     console.log(url.href);
