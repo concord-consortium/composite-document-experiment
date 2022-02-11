@@ -106,16 +106,15 @@ export const Container = (initialDocument: any) => {
     // TODO: the container should probably not call this directly on the trees
     // instead it should be some action that indicates the initialization is done
     // then the trees can call this themselves.
-    //
-    // CHECKME: the functions used by replyHistoryToTrees might fail if the undo
-    // recorder is not setup.
     sharedModel.setupUndoRecorder();
     diagram.setupUndoRecorder();
     itemList.setupUndoRecorder();
   });
 
-  // FIXME we are returning here before things are ready to be used.
-  // I'm not sure yet the best way to handle this, but we are also going to run
-  // into this problem when applying patches from other users
+  // TODO: We are returning here before things are ready to be used. This seems to
+  // work though, the views are setup with this list of tiles and then they are
+  // hydrated with the state. This could cause problems if the user does things
+  // while it is still loading. So it would be better to provide a way to block
+  // the screen while it is loading. 
   return {diagram, itemList, sharedModel, undoStore, documentStore};
 };

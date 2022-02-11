@@ -2,7 +2,6 @@ import { types, applySnapshot, IJsonPatch, applyPatch, Instance, getEnv, getPath
 import { ContainerAPI } from "./container-api";
 import { SharedModel } from "./shared-model/shared-model";
 import { createUndoRecorder, SharedModelsConfig } from "./undo-manager/undo-recorder";
-import { TreeUndoEntry } from "./undo-manager/undo-store";
 
 export const Tree = types.model("Tree", {
     id: types.identifier
@@ -100,17 +99,15 @@ export const Tree = types.model("Tree", {
             // it knows about since they might be added after it is initially setup. 
             // Because it is a middleware attached to the tile's tree it probably also needs to be
             // destroyed 
-            createUndoRecorder(self, (entry) => {
-                console.log("recording undoable action", {treeId: self.id, ...entry});
-                containerAPI().addUndoEntry(entry.containerActionId, 
-                    TreeUndoEntry.create({
-                        tileId: self.id, 
-                        actionName: entry.actionName, 
-                        patches: entry.patches, 
-                        inversePatches: entry.inversePatches}),
-                    entry.undoableAction 
-                );
-            }, false, sharedModelsConfig );
+            // Note: we have to cast self here because it isn't fully configured
+            // yet and createUndoRecorder is expecting the full tree type.
+            // FIXME: this is a circular module dependency, tree is depending
+            // on undo-recorder and undo recorder is depending on tree. I think
+            // this currently works because only the types of Tree are used by
+            // undo-recorder.
+            // It is hacky but we could put the model definition of Tree in its
+            // own module, and then a separate module adds its actions.
+            createUndoRecorder(self as Instance<typeof Tree>, containerAPI(), false, sharedModelsConfig );
         },
 
         updateTreeAfterSharedModelChangesInternal(containerActionId: string) {

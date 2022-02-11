@@ -1,20 +1,14 @@
 import {
-    IAnyStateTreeNode,
     recordPatches,
     IPatchRecorder,
     createActionTrackingMiddleware2, flow,
     addMiddleware,
-    addDisposer, isActionContextThisOrChildOf, IJsonPatch, IActionTrackingMiddleware2Call
+    addDisposer, isActionContextThisOrChildOf, IActionTrackingMiddleware2Call, Instance, getSnapshot
 } from "mobx-state-tree";
 import { v4 as uuidv4 } from "uuid";
-
-export interface RecordedEntry {
-    containerActionId: string,
-    actionName: string,
-    patches: ReadonlyArray<IJsonPatch>,
-    inversePatches: ReadonlyArray<IJsonPatch>,
-    undoableAction: boolean
-}
+import { ContainerAPI } from "../container-api";
+import { Tree } from "../tree";
+import { TreeUndoEntry } from "./undo-store";
 
 interface CallEnv {
     recorder: IPatchRecorder;
@@ -29,7 +23,7 @@ type SharedModelModifications = Record<string, number>;
 
 // This seems to work better not being an MST model, it doesn't
 // need to record state its self. 
-export const createUndoRecorder = (targetStore: IAnyStateTreeNode, onRecorded: (entry: RecordedEntry) => void,
+export const createUndoRecorder = (tree: Instance<typeof Tree>, container: ContainerAPI, 
     includeHooks: boolean, sharedModelsConfig: SharedModelsConfig = {}) => {
     let recordingDisabled = 0;
 
@@ -174,11 +168,11 @@ export const createUndoRecorder = (targetStore: IAnyStateTreeNode, onRecorded: (
     // without this the creation of a model would be recorded by the recorder if it was
     // a done in a child action. So we should do some experimentation with middleware
     // the recorder and hooks.
-    const middlewareDisposer = addMiddleware(targetStore, undoRedoMiddleware, includeHooks);
+    const middlewareDisposer = addMiddleware(tree, undoRedoMiddleware, includeHooks);
 
     // We might need an option to not add this disposer, but it seems it would generally
     // ge a good thing to do.
-    addDisposer(targetStore, middlewareDisposer);
+    addDisposer(tree, middlewareDisposer);
 
     const addUndoState = (recorder: IPatchRecorder, actionName: string, 
         containerActionId: string, undoableAction: boolean) => {
@@ -187,14 +181,15 @@ export const createUndoRecorder = (targetStore: IAnyStateTreeNode, onRecorded: (
             return;
         }
 
-        // Send the new entry to the handler
-        onRecorded({
-            containerActionId,
+        // Send new entry to the container
+        const treeUndoEntry = TreeUndoEntry.create({
+            tileId: tree.id,
             actionName,
             patches: recorder.patches,
             inversePatches: recorder.inversePatches,
-            undoableAction
         });
+        console.log("recording undoable action", getSnapshot(treeUndoEntry));
+        container.addUndoEntry(containerActionId, treeUndoEntry, undoableAction);
     };
 
     return {
