@@ -162,7 +162,7 @@ export const Tree = types.model("Tree", {
         },
 
         // The container calls this before it calls applyPatchesFromUndo
-        startApplyingContainerPatches() {
+        startApplyingContainerPatches(containerActionId: string) {
             self.applyingContainerPatches = true;
 
             // We return a promise because the API is async
@@ -175,7 +175,7 @@ export const Tree = types.model("Tree", {
         // also by giving it an action name the undo recorder can identify that
         // this action by its name and not record the undo as an undo
         // It might be called multiple times after startApplyingContainerPatches
-        applyPatchesFromUndo(patchesToApply: readonly IJsonPatch[]) {
+        applyPatchesFromUndo(containerActionId: string, patchesToApply: readonly IJsonPatch[]) {
             applyPatch(self, patchesToApply);
             // We return a promise because the API is async
             // The action itself doesn't do anything asynchronous though
@@ -184,7 +184,7 @@ export const Tree = types.model("Tree", {
         },
 
         // The container calls this after all patches have been applied
-        finishApplyingContainerPatches() {
+        finishApplyingContainerPatches(containerActionId: string) {
             self.applyingContainerPatches = false;
 
             // TODO: Need to deal with possible effects on the undo stack

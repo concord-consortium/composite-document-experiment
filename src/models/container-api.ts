@@ -52,18 +52,8 @@ export interface ContainerAPI {
      * @param undoableAction true if this action should be saved to the undo
      * stack. Changes that result from `applyPatchesFromUndo` should not be
      * undo-able.
-     */
-    // FIXME: I think it would be more clear to split this into two calls:
-    // 1. initiating or starting a new action
-    // 2. recording additional changes triggered from an existing action
-    // The undoableAction and containerActionId only apply to #2
-    //    A initial name only applies to #1. However there are cases where a
-    //    tree will initiate a action without any changes, and all of its
-    //    changes will be on the sharedModel. So I need to review how that
-    //    currently works.
-    recordChangeEntry: (containerActionId: string, treeChangeEntry: TreeChangeEntry, undoableAction: boolean) => void;
+     */    
+    recordActionStart: (containerActionId: string, treeId: string, actionName: string, undoable: boolean) => void;
     
-    // recordActionStart: (containerActionId: string, treeId: string, actionName: string, undoable: boolean) => void;
-    
-    // recordActionChanges: (containerActionId: string, treeChangeEntry: TreeChangeEntry) => void;
+    recordActionChanges: (containerActionId: string, treeChangeEntry: TreeChangeEntry) => void;
 }

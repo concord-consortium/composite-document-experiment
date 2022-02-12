@@ -1,6 +1,7 @@
 import {
     types, Instance, flow, getEnv, IJsonPatch
 } from "mobx-state-tree";
+import { v4 as uuidv4 } from "uuid";
 import { TreeAPI } from "./tree-api";
 import { TreeUndoEntry, UndoEntry, UndoStore } from "./undo-manager/undo-store";
 
@@ -37,12 +38,15 @@ export const DocumentStore = types
             const getTreeFromId = (getEnv(self) as Environment).getTreeFromId;
             const trees = Object.values(treeMap);
 
+            const containerActionId = uuidv4();
+            // FIXME: this should also start an non-undoable action with this id
+
             // For now we are going to try to disable shared model syncing on
             // all of the trees. This is different than when the undo patches
             // are applied because we are going to apply lots of undoable
             // actions all at once. 
             const startPromises = trees.map(tree => {
-                return tree.startApplyingContainerPatches();
+                return tree.startApplyingContainerPatches(containerActionId);
             });
             yield Promise.all(startPromises);
 
@@ -75,7 +79,7 @@ export const DocumentStore = types
             const applyPromises = Object.entries(treePatches).map(([treeId, patches]) => {
                 if (patches && patches.length > 0) {
                     const tree = getTreeFromId(treeId);
-                    return tree?.applyPatchesFromUndo(patches);
+                    return tree?.applyPatchesFromUndo(containerActionId, patches);
                 } 
             });
             yield Promise.all(applyPromises);
@@ -88,7 +92,7 @@ export const DocumentStore = types
             // This can be used in the future to make sure multiple applyPatchesToTrees are not 
             // running at the same time.
             const finishPromises = trees.map(tree => {
-                return tree.finishApplyingContainerPatches();
+                return tree.finishApplyingContainerPatches(containerActionId);
             });
             // I'm using a yield because it isn't clear from the docs if an flow MST action
             // can return a promise or not.
@@ -109,6 +113,10 @@ export const DocumentStore = types
 
                 entry.treeEntries.push(treeUndoEntry);
 
+                // add the entry to the undo stack if it is undoable
+                // the entry is shared with the document, so when the code above
+                // updates it with the treeUndoEntry that will apply to the undo
+                // stack too. 
                 if (undoable) {
                     self.undoStore.addUndoEntry(entry);
                 }

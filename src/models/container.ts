@@ -60,33 +60,48 @@ export const Container = (initialDocument: any) => {
       // then() at the end to do this.
       return Promise.all(applyPromises).then();
     },
-    recordChangeEntry: (containerActionId: string, treeChangeEntry: TreeChangeEntry, undoableAction: boolean) => {
-      documentStore.addUndoEntry(containerActionId, undoableAction, TreeUndoEntry.create(treeChangeEntry));
-    },
-  //   recordActionStart: (containerActionId: string, treeId: string, actionName: string, undoable: boolean) => {
-  //     const treeChangeEntry: TreeChangeEntry = {
-  //       treeId,
-  //       actionName,
-  //       patches: [],
-  //       inversePatches: []
-  //     };
-  //     if (undoable) {
-  //       // FIXME: it is possible some action changes came in before the action
-  //       // start. So we should look in the documentStore for this action just in
-  //       // case and then copy any changes to the undoStore
-  //       // This would also be solved if the two stores shared the list of
-  //       // actions, and the undoStore just had pointers into this shared list.        
-  //       undoStore.addUndoEntry(containerActionId, TreeUndoEntry.create(treeChangeEntry));
-  //     }
+    recordActionStart: (containerActionId: string, treeId: string, actionName: string, undoable: boolean) => {
+      const treeChangeEntry: TreeChangeEntry = {
+        treeId,
+        actionName, // FIXME: really this should be stored in a different place
+        patches: [],
+        inversePatches: []
+      };
 
-  //     documentStore.addUndoEntry(containerActionId, TreeUndoEntry.create(treeChangeEntry));
-  //   },
-  //   recordActionChanges: (containerActionId: string, treeChangeEntry: TreeChangeEntry) => {
-  //     // FIXME: we should add this to the undoStore too, but only if it is an
-  //     // undoable action.
-  //     documentStore.addUndoEntry(containerActionId, TreeUndoEntry.create(treeChangeEntry));
-  //   }
-   };
+      // FIXME: there might be cases were actions are started  but then they end
+      // up with no changes at all. These should be pruned from the undo stack.
+      // Otherwise the user might hit undo and nothing happens. I think it makes
+      // sense to keep them in the document change list because it could be
+      // useful to a researcher or teacher to have a record of these user
+      // initiated actions even if they don't change things. For example if a
+      // animation is started that doesn't record any state, the start action
+      // would be useful. We can fix this
+      // by putting these start undoEntries only in the document change list and
+      // only add them to the undo stack if a new event comes in. That does mean
+      // that we'll have to store the "undoable" property on entry itself so we
+      // can know to put it in the stack when changes come in.
+      //
+      // The reason we have this separate recordActionStart is so we can record
+      // the top level treeId and name of actions in tiles that are only
+      // changing the shared model. An example in the current code is when the
+      // name of a node is changed.
+      documentStore.addUndoEntry(containerActionId, undoable, TreeUndoEntry.create(treeChangeEntry));
+    },
+    recordActionChanges: (containerActionId: string, treeChangeEntry: TreeChangeEntry) => {
+      console.log("recording action", treeChangeEntry);
+
+      // FIXME: this is confusing. 
+      // 
+      // When the entry already exists the documentStore will add to it.
+      // If the entry doesn't exist yet because this was called before
+      // recordActionStart then it will be created. 
+      //
+      // The undoable:false param just controls if the entry is added to the
+      // undoStore if it is false here and then later it is set to true by a
+      // call to recordActionStart, the entry will get added to the undoStore.
+      documentStore.addUndoEntry(containerActionId, false, TreeUndoEntry.create(treeChangeEntry));
+    }
+  };
 
   const diagram = DQRoot.create({id: "diagram", sharedModel: {id: "sharedModel"}},{containerAPI});
   const itemList = ItemList.create({id: "itemList", sharedModel: {id: "sharedModel"}},{containerAPI});

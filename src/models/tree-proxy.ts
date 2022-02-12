@@ -39,17 +39,17 @@ export class TreeProxy implements TreeAPI {
         this.tree = tree;
     }
 
-    startApplyingContainerPatches() {
+    startApplyingContainerPatches(containerActionId: string) {
         return delay(0)
-        .then(() => this.tree.startApplyingContainerPatches());
+        .then(() => this.tree.startApplyingContainerPatches(containerActionId));
     }
-    applyPatchesFromUndo(patchesToApply: readonly IJsonPatch[]) {
+    applyPatchesFromUndo(containerActionId: string, patchesToApply: readonly IJsonPatch[]) {
         return delay(100)
-        .then(() => this.tree.applyPatchesFromUndo(patchesToApply));
+        .then(() => this.tree.applyPatchesFromUndo(containerActionId, patchesToApply));
     }
-    finishApplyingContainerPatches() {
+    finishApplyingContainerPatches(containerActionId: string) {
         return delay(0)
-        .then(() => this.tree.finishApplyingContainerPatches());
+        .then(() => this.tree.finishApplyingContainerPatches(containerActionId));
     }
     applySharedModelSnapshotFromContainer(containerActionId: string, snapshot: any) {
         return delay(50)

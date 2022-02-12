@@ -58,8 +58,7 @@ export const createUndoRecorder = (tree: Instance<typeof Tree>, container: Conta
             //
             // We could use the `decorate` feature of MST to at least make it more clear
             // in the Tile model that these actions are special. 
-            if (call.name === "applySharedModelSnapshotFromContainer" ||
-                call.name === "updateTreeAfterSharedModelChangesInternal") {
+            if (isActionFromContainer(call)) {
                 containerActionId = call.args[0];
             } else {
                containerActionId = uuidv4();
@@ -111,20 +110,7 @@ export const createUndoRecorder = (tree: Instance<typeof Tree>, container: Conta
             recorder.stop();
 
             if (error === undefined) {
-                const undoableAction = call.name !== "applyPatchesFromUndo";
-                addUndoState(recorder, call.name, containerActionId, undoableAction);
-                // Call the shared model notification function if there are changes. 
-                // This is needed so the changes can be sent to the container,
-                // and so the changes can trigger a update/sync of the tile model
-                // Previously this internal updating or sync'ing was done using an autorun to monitor the models. 
-                // But that doesn't have access to the action id that triggered the sync, and that action id is
-                // needed so we can group the changes together so we can undo them later.
-                Object.entries(sharedModelModifications).forEach(([path, numModifications]) => {
-                    if (numModifications > 0) {
-                        // Run the callback tracking changes to the shared model
-                        sharedModelsConfig[path](containerActionId, call);
-                    }
-                });
+                recordAction(call, containerActionId, recorder, sharedModelModifications);
             } else {
                 // TODO: This is kind of a new feature that is being added to the tree by the undo manager
                 // any errors that happen during an action will cause the tree to revert back to 
@@ -173,22 +159,42 @@ export const createUndoRecorder = (tree: Instance<typeof Tree>, container: Conta
     // ge a good thing to do.
     addDisposer(tree, middlewareDisposer);
 
-    const addUndoState = (recorder: IPatchRecorder, actionName: string, 
-        containerActionId: string, undoableAction: boolean) => {
-        if (recorder.patches.length === 0) {
-            // skip recording if patches is empty
-            return;
+    const recordAction = (call: IActionTrackingMiddleware2Call<CallEnv>, containerActionId: string, 
+        recorder: IPatchRecorder, sharedModelModifications: SharedModelModifications) => {    
+        if (!isActionFromContainer(call)) {
+            // We record the start of the action even if it doesn't have any
+            // patches. This is useful when an action only modifies the shared
+            // tree
+            //
+            // We only record this when the action is triggered by the
+            // container. If the container triggered the action then it is up to
+            // the container to setup this information first.
+            container.recordActionStart(containerActionId, tree.id, call.name, true);
+        }
+    
+        // Only send the changes to the container if there are some
+        if (recorder.patches.length > 0) {
+            const treeChangeEntry: TreeChangeEntry = {
+                treeId: tree.id,
+                actionName: call.name,
+                patches: recorder.patches,
+                inversePatches: recorder.inversePatches,
+            };
+            container.recordActionChanges(containerActionId, treeChangeEntry);
         }
 
-        // Send new entry to the container
-        const treeChangeEntry: TreeChangeEntry = {
-            treeId: tree.id,
-            actionName,
-            patches: recorder.patches,
-            inversePatches: recorder.inversePatches,
-        };
-        console.log("recording undoable action", treeChangeEntry);
-        container.recordChangeEntry(containerActionId, treeChangeEntry, undoableAction);
+        // Call the shared model notification function if there are changes. 
+        // This is needed so the changes can be sent to the container,
+        // and so the changes can trigger a update/sync of the tile model
+        // Previously this internal updating or sync'ing was done using an autorun to monitor the models. 
+        // But that doesn't have access to the action id that triggered the sync, and that action id is
+        // needed so we can group the changes together so we can undo them later.
+        Object.entries(sharedModelModifications).forEach(([path, numModifications]) => {
+            if (numModifications > 0) {
+                // Run the callback tracking changes to the shared model
+                sharedModelsConfig[path](containerActionId, call);
+            }
+        });
     };
 
     return {
@@ -209,3 +215,12 @@ export const createUndoRecorder = (tree: Instance<typeof Tree>, container: Conta
         },
     };
 };
+
+function isActionFromContainer(call: IActionTrackingMiddleware2Call<CallEnv>) {
+    return call.name === "applySharedModelSnapshotFromContainer" ||
+        call.name === "updateTreeAfterSharedModelChangesInternal" ||
+        call.name === "applyPatchesFromUndo" ||
+        call.name === "startApplyingContainerPatches" ||
+        call.name === "finishApplyingContainerPatches";
+}
+

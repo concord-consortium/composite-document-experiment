@@ -1,6 +1,8 @@
 import {
     types, IJsonPatch, Instance, getSnapshot, getEnv, flow
 } from "mobx-state-tree";
+import { v4 as uuidv4 } from "uuid";
+
 import { TreeAPI } from "../tree-api";
 
 // I don't know if it is worth making this a MST model
@@ -67,9 +69,12 @@ export const UndoStore = types
             const getTreeFromId = (getEnv(self) as Environment).getTreeFromId;
             const treeEntries = entryToUndo.treeEntries;
 
+            const containerActionId = uuidv4();
+            // FIXME: this should also start a non-undoable action with this id
+
             // first disable shared model syncing in the tree
             const startPromises = treeEntries.map(treeEntry => {
-                return getTreeFromId(treeEntry.treeId).startApplyingContainerPatches();
+                return getTreeFromId(treeEntry.treeId).startApplyingContainerPatches(containerActionId);
             });
             yield Promise.all(startPromises);
 
@@ -80,7 +85,7 @@ export const UndoStore = types
                 // state to all tiles. If this is working properly the promise returned by
                 // the shared model's applyPatchesFromUndo will not resolve until all tiles
                 // using it have updated their view of the shared model.
-                return getTreeFromId(treeEntry.treeId).applyPatchesFromUndo(treeEntry.getPatches(opType));
+                return getTreeFromId(treeEntry.treeId).applyPatchesFromUndo(containerActionId, treeEntry.getPatches(opType));
             });
             yield Promise.all(applyPromises);
 
@@ -91,7 +96,7 @@ export const UndoStore = types
             // This can be used in the future to make sure multiple applyPatchesToTrees are not 
             // running at the same time.
             const finishPromises = treeEntries.map(treeEntry => {
-                return getTreeFromId(treeEntry.treeId).finishApplyingContainerPatches();
+                return getTreeFromId(treeEntry.treeId).finishApplyingContainerPatches(containerActionId);
             });
             // I'm using a yield because it isn't clear from the docs if an flow MST action
             // can return a promise or not.

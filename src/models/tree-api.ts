@@ -22,7 +22,7 @@ export interface TreeAPI {
      *
      * The `Tree` model implements this for you.
      */
-    startApplyingContainerPatches(): Promise<void>;
+    startApplyingContainerPatches(containerActionId: string): Promise<void>;
 
     /**
      * This is called when the container is doing an undo or redo. This will
@@ -36,7 +36,7 @@ export interface TreeAPI {
      * It will be called after startApplyingContainerPatches. The patches should
      * be applied in order starting from the first in the array.
      */
-    applyPatchesFromUndo(patchesToApply: readonly IJsonPatch[]): Promise<void>;
+    applyPatchesFromUndo(containerActionId: string, patchesToApply: readonly IJsonPatch[]): Promise<void>;
 
     /**
      * This is called after the container has applied all of the undo patches.
@@ -49,7 +49,7 @@ export interface TreeAPI {
      * the tile state when its shared models change.
      * The `Tree` model implements this for you.
      */
-    finishApplyingContainerPatches(): Promise<void>;
+    finishApplyingContainerPatches(containerActionId: string): Promise<void>;
 
 
     // The returned promise should resolve when all of the changes
