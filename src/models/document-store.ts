@@ -32,6 +32,48 @@ export const DocumentStore = types
     }))
     .actions((self) => {
 
+        const createOrUpdateHistoryEntry = (containerActionId: string, name: string, treeId: string, undoable: boolean) => {
+            let entry = self.undoEntry(containerActionId);
+            if (!entry) {
+                entry = UndoEntry.create({containerActionId});
+                self.document.history.push(entry);
+            } 
+            // update the new or existing entry
+            entry.name = name;
+            entry.initialTreeId = treeId;
+            entry.undoable = undoable;
+
+            // Only add it to the undo stack if it has changes. This means
+            // it must have existed before.
+            if (undoable && entry.treeEntries.length > 0) {
+                self.undoStore.addUndoEntry(entry);
+            }
+
+        };
+
+        const addPatchesToHistoryEntry = (containerActionId: string, treeUndoEntry: Instance<typeof TreeUndoEntry>) => {
+            // Find if there is already an UndoEntry with this containerActionId
+            let entry = self.undoEntry(containerActionId);
+            if (!entry) {
+                // This is a new user action, normally
+                // createOrUpdateHistoryEntry would have been called first
+                // but it is better to handle the out of order case here so
+                // we don't have to deal with synchronizing the two calls.
+                entry = UndoEntry.create({containerActionId});
+                self.document.history.push(entry);
+            }
+
+            entry.treeEntries.push(treeUndoEntry);
+
+            // add the entry to the undo stack if it is undoable
+            // the entry is shared with the document, so when the code above
+            // updates it with the treeUndoEntry that will apply to the undo
+            // stack too. 
+            if (entry.undoable) {
+                self.undoStore.addUndoEntry(entry);
+            }
+        };
+
         // This is asynchronous. We might as well use a flow so we don't have to 
         // create separate actions for each of the parts of this single action
         const replayHistoryToTrees = flow(function* replayHistoryToTrees(treeMap: Record<string, TreeAPI> ) {
@@ -39,7 +81,11 @@ export const DocumentStore = types
             const trees = Object.values(treeMap);
 
             const containerActionId = uuidv4();
-            // FIXME: this should also start an non-undoable action with this id
+            // Start a non-undoable action with this id. Currently the trees do
+            // not have their undoRecorders setup at this point, so we should
+            // not see any patches with this containerActionId.
+            // However, it seems good to go ahead and record this anyway.
+            createOrUpdateHistoryEntry(containerActionId, "replayHistoryToTrees", "container", false);
 
             // For now we are going to try to disable shared model syncing on
             // all of the trees. This is different than when the undo patches
@@ -101,48 +147,9 @@ export const DocumentStore = types
 
 
         return {
-            createOrUpdateHistoryEntry(containerActionId: string, name: string, treeId: string, undoable: boolean) {
-                let entry = self.undoEntry(containerActionId);
-                if (!entry) {
-                    entry = UndoEntry.create({containerActionId});
-                    self.document.history.push(entry);
-                } 
-                // update the new or existing entry
-                entry.name = name;
-                entry.initialTreeId = treeId;
-                entry.undoable = undoable;
-
-                // Only add it to the undo stack if it has changes. This means
-                // it must have existed before.
-                if (undoable && entry.treeEntries.length > 0) {
-                    self.undoStore.addUndoEntry(entry);
-                }
-
-            },
-
-            addPatchesToHistoryEntry(containerActionId: string, treeUndoEntry: Instance<typeof TreeUndoEntry>) {
-                // Find if there is already an UndoEntry with this containerActionId
-                let entry = self.undoEntry(containerActionId);
-                if (!entry) {
-                    // This is a new user action, normally
-                    // createOrUpdateHistoryEntry would have been called first
-                    // but it is better to handle the out of order case here so
-                    // we don't have to deal with synchronizing the two calls.
-                    entry = UndoEntry.create({containerActionId});
-                    self.document.history.push(entry);
-                }
-
-                entry.treeEntries.push(treeUndoEntry);
-
-                // add the entry to the undo stack if it is undoable
-                // the entry is shared with the document, so when the code above
-                // updates it with the treeUndoEntry that will apply to the undo
-                // stack too. 
-                if (entry.undoable) {
-                    self.undoStore.addUndoEntry(entry);
-                }
-            },
-            replayHistoryToTrees
+            replayHistoryToTrees,
+            createOrUpdateHistoryEntry,
+            addPatchesToHistoryEntry
         };
       
     });

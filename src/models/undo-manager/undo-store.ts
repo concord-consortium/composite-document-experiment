@@ -34,6 +34,7 @@ export const UndoEntry = types.model("UndoEntry", {
     // This doesn't need to be recorded in the state, but putting it here is
     // the easiest place for now.
     undoable: types.maybe(types.boolean),  
+    created: types.optional(types.Date, () => new Date()),
     treeEntries: types.array(TreeUndoEntry)
 });
 
