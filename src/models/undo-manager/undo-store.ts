@@ -1,7 +1,8 @@
 import {
-    types, IJsonPatch, Instance, getSnapshot, getEnv, flow
+    types, IJsonPatch, Instance, getSnapshot, getEnv, flow, getParent
 } from "mobx-state-tree";
 import { v4 as uuidv4 } from "uuid";
+import { DocumentStore } from "../document-store";
 
 import { TreeAPI } from "../tree-api";
 
@@ -28,6 +29,11 @@ export const TreeUndoEntry = types.model("TreeUndoEntry", {
 
 export const UndoEntry = types.model("UndoEntry", {
     containerActionId: types.identifier,
+    initialTreeId: types.maybe(types.string),
+    name: types.maybe(types.string),
+    // This doesn't need to be recorded in the state, but putting it here is
+    // the easiest place for now.
+    undoable: types.maybe(types.boolean),  
     treeEntries: types.array(TreeUndoEntry)
 });
 
@@ -70,7 +76,10 @@ export const UndoStore = types
             const treeEntries = entryToUndo.treeEntries;
 
             const containerActionId = uuidv4();
-            // FIXME: this should also start a non-undoable action with this id
+
+            // Start a non-undoable action with this id
+            const docStore = getParent(self) as Instance<typeof DocumentStore>;
+            docStore.createOrUpdateHistoryEntry(containerActionId, opType, "container", false);
 
             // first disable shared model syncing in the tree
             const startPromises = treeEntries.map(treeEntry => {

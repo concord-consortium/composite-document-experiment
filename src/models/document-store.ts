@@ -101,12 +101,33 @@ export const DocumentStore = types
 
 
         return {
-            
-            addUndoEntry(containerActionId: string, undoable: boolean, treeUndoEntry: Instance<typeof TreeUndoEntry>) {
+            createOrUpdateHistoryEntry(containerActionId: string, name: string, treeId: string, undoable: boolean) {
+                let entry = self.undoEntry(containerActionId);
+                if (!entry) {
+                    entry = UndoEntry.create({containerActionId});
+                    self.document.history.push(entry);
+                } 
+                // update the new or existing entry
+                entry.name = name;
+                entry.initialTreeId = treeId;
+                entry.undoable = undoable;
+
+                // Only add it to the undo stack if it has changes. This means
+                // it must have existed before.
+                if (undoable && entry.treeEntries.length > 0) {
+                    self.undoStore.addUndoEntry(entry);
+                }
+
+            },
+
+            addPatchesToHistoryEntry(containerActionId: string, treeUndoEntry: Instance<typeof TreeUndoEntry>) {
                 // Find if there is already an UndoEntry with this containerActionId
                 let entry = self.undoEntry(containerActionId);
                 if (!entry) {
-                    // This is a new user action
+                    // This is a new user action, normally
+                    // createOrUpdateHistoryEntry would have been called first
+                    // but it is better to handle the out of order case here so
+                    // we don't have to deal with synchronizing the two calls.
                     entry = UndoEntry.create({containerActionId});
                     self.document.history.push(entry);
                 }
@@ -117,7 +138,7 @@ export const DocumentStore = types
                 // the entry is shared with the document, so when the code above
                 // updates it with the treeUndoEntry that will apply to the undo
                 // stack too. 
-                if (undoable) {
+                if (entry.undoable) {
                     self.undoStore.addUndoEntry(entry);
                 }
             },
