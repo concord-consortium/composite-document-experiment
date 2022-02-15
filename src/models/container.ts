@@ -111,9 +111,9 @@ export const Container = (initialDocument: any) => {
     // TODO: the container should probably not call this directly on the trees
     // instead it should be some action that indicates the initialization is done
     // then the trees can call this themselves.
-    sharedModel.setupUndoRecorder();
-    diagram.setupUndoRecorder();
-    itemList.setupUndoRecorder();
+    sharedModel.setupTreeMonitor();
+    diagram.setupTreeMonitor();
+    itemList.setupTreeMonitor();
   });
 
   // TODO: We are returning here before things are ready to be used. This seems to

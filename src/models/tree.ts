@@ -31,7 +31,7 @@ export const Tree = types.model("Tree", {
         // have been added. However we 
         // will need to support shared models being added later on
         // so maybe something else should happen here
-        setupUndoRecorder() {
+        setupTreeMonitor() {
 
             // TODO: If shared models are mounted after the undoRecorder has been created 
             // the map of shared in the recorder needs to be updated.
