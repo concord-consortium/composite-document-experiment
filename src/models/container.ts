@@ -42,7 +42,7 @@ export const Container = (initialDocument: any) => {
       // 1. when a user changes something in a tile which 
       //    then updates the tile's view of the shared model, so the tile wants all copies
       //    of this shared model to be updated.
-      // 2. when a user undos or redos an action that affects the shared model tree. In this
+      // 2. when a user undoes or redoes an action that affects the shared model tree. In this
       //    case the shared model calls updateSharedModel to send these changes to all of 
       //    the tile views
       // If we support tiles having customized views of shared models then this will

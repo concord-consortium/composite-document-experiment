@@ -21,7 +21,7 @@ code and didn't see an obvious way to do this, but it seems possible.
 The behavior or onInvalidated when snapshots are being applied is confusing and 
 seeming unpredictable.
 
-In some cases calling applySnaphot with a snapshot containing an invalid
+In some cases calling applySnapshot with a snapshot containing an invalid
 reference does not trigger onInvalidated. 
 
 In other cases onInvalidated is triggered in this case. However if the 
@@ -52,7 +52,7 @@ might save the position of a column in a shared data set model. This position in
 needs to relate to something in the shared model. The example here uses MST references
 to keep track of this. 
 
-If the thing being referenced in the shared model is deleted. Or a new similiar thing
+If the thing being referenced in the shared model is deleted. Or a new similar thing
 is added the tile needs to stay synchronized. So for example with the table tile if the
 column is delete then the table tile's position info should be deleted too. Or if a new
 column is added this table tile needs to decide what position to put this new column in.
@@ -248,25 +248,6 @@ The main shared model could be called the source. And thing mounted in the
 tile could be a shadow. I think it would be more useful if the shared model 
 represented the abstract concept of sharing state. So then we need names for
 the 2 ways that is represented in the system. 
-
-We have talked about tiles containing a subset of the shared model and I've 
-referred to that as a "view" of the shared model. So we could call these
-shared model views.  In the implementation so far the view is just the full
-model. The other one could be the shared model tree. It would be nice to use
-the generic name of things in the container here. But a shared model tree
-isn't clear to me. So maybe this will help us come up with a better name.
-- shared model source
-- shared model container
-- shared model origin
-- shared model state
-- shared model tree
-- shared model model
-- shared model root
-- main shared model
-- shared model database
-- principal shared model
-- shared model arbol
-- shared model raiz (spanish for root)
 
 The shared model tree needs to be sent to each tile's shared model view.
 The shared model view needs to be synced with the tile's models.
