@@ -354,3 +354,17 @@ When we undo and redo we could record these things into the documentStore
 directly without requiring the trees to send updated patches. But it seems
 better to let the trees do this just incase something applies different when the
 patch is applied to the actual tree.
+
+# tree monitor refactor
+
+Just the tree could be passed to the tree monitor.
+The tree monitor could get the shared model paths from the tree.
+And when the tree monitor observes changes in one of these paths
+it notifies the tree including the path.
+The tree can lookup the shared model view at that path, and then
+send the snapshot of the shared model view to the container.
+The tree would also need to tell each of its tiles to update their state now
+that the shared model view has changed. 
+
+This is a place where we'd need to make changes so a single tree can support
+multiple tiles. 

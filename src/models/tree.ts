@@ -1,7 +1,7 @@
 import { types, applySnapshot, IJsonPatch, applyPatch, Instance, getEnv, getPath, getSnapshot } from "mobx-state-tree";
 import { ContainerAPI } from "./container-api";
 import { SharedModel } from "./shared-model/shared-model";
-import { createUndoRecorder, SharedModelsConfig } from "./undo-manager/undo-recorder";
+import { addTreeMonitor, SharedModelsConfig } from "./undo-manager/tree-monitor";
 
 export const Tree = types.model("Tree", {
     id: types.identifier
@@ -107,7 +107,7 @@ export const Tree = types.model("Tree", {
             // undo-recorder.
             // It is hacky but we could put the model definition of Tree in its
             // own module, and then a separate module adds its actions.
-            createUndoRecorder(self as Instance<typeof Tree>, containerAPI(), false, sharedModelsConfig );
+            addTreeMonitor(self as Instance<typeof Tree>, containerAPI(), false, sharedModelsConfig );
         },
 
         updateTreeAfterSharedModelChangesInternal(historyEntryId: string) {

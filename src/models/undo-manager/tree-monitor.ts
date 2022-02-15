@@ -23,11 +23,11 @@ type SharedModelModifications = Record<string, number>;
 
 // This seems to work better not being an MST model, it doesn't
 // need to record state its self. 
-export const createUndoRecorder = (tree: Instance<typeof Tree>, container: ContainerAPI, 
+export const addTreeMonitor = (tree: Instance<typeof Tree>, container: ContainerAPI, 
     includeHooks: boolean, sharedModelsConfig: SharedModelsConfig = {}) => {
     let recordingDisabled = 0;
 
-    const undoRedoMiddleware = createActionTrackingMiddleware2<CallEnv>({
+    const treeMonitorMiddleware = createActionTrackingMiddleware2<CallEnv>({
         filter(call) {
             if (call.env) {
                 // already recording
@@ -127,11 +127,6 @@ export const createUndoRecorder = (tree: Instance<typeof Tree>, container: Conta
      * This is used both internally to skip recording the undo and redo actions, and
      * to allow code using this middle ware to skip certain actions.
      *
-     * The internal actions modify the recorded tree, so they should be skipped for
-     * purposes of undo. However, in order to support time travel that includes undo
-     * and redo we will need to record them somewhere, but perhaps that would be a
-     * separate middleware.
-     *
      * The `recordingDisabled` counter is used above in onStart in its recordPatches
      * callback. Note that this is global setting. So if something starts skipping
      * recording that would be applied to all actions even un related asynchronous
@@ -154,7 +149,7 @@ export const createUndoRecorder = (tree: Instance<typeof Tree>, container: Conta
     // without this the creation of a model would be recorded by the recorder if it was
     // a done in a child action. So we should do some experimentation with middleware
     // the recorder and hooks.
-    const middlewareDisposer = addMiddleware(tree, undoRedoMiddleware, includeHooks);
+    const middlewareDisposer = addMiddleware(tree, treeMonitorMiddleware, includeHooks);
 
     // We might need an option to not add this disposer, but it seems it would generally
     // ge a good thing to do.
