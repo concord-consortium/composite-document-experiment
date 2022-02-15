@@ -22,7 +22,7 @@ export interface TreeAPI {
      *
      * The `Tree` model implements this for you.
      */
-    startApplyingContainerPatches(containerActionId: string): Promise<void>;
+    startApplyingContainerPatches(historyEntryId: string): Promise<void>;
 
     /**
      * This is called when the container is doing an undo or redo. This will
@@ -36,7 +36,7 @@ export interface TreeAPI {
      * It will be called after startApplyingContainerPatches. The patches should
      * be applied in order starting from the first in the array.
      */
-    applyPatchesFromUndo(containerActionId: string, patchesToApply: readonly IJsonPatch[]): Promise<void>;
+    applyPatchesFromUndo(historyEntryId: string, patchesToApply: readonly IJsonPatch[]): Promise<void>;
 
     /**
      * This is called after the container has applied all of the undo patches.
@@ -49,7 +49,7 @@ export interface TreeAPI {
      * the tile state when its shared models change.
      * The `Tree` model implements this for you.
      */
-    finishApplyingContainerPatches(containerActionId: string): Promise<void>;
+    finishApplyingContainerPatches(historyEntryId: string): Promise<void>;
 
 
     // The returned promise should resolve when all of the changes
@@ -82,7 +82,7 @@ export interface TreeAPI {
      * action when it is necessary. So then your tree just needs to implement
      * this `updateTreeAfterSharedModelChanges`.
      *
-     * @param containerActionId this identifies the group of tree actions which
+     * @param historyEntryId this identifies the group of tree actions which
      * is triggering this call. The tree should use this id to identify any
      * changes that result from applying this shared model change.
      *
@@ -92,5 +92,5 @@ export interface TreeAPI {
      * needs. For example with a data set shared model it could include just the
      * column of data being used by this tree.
      */
-    applySharedModelSnapshotFromContainer(containerActionId: string, snapshot: any): Promise<void>;
+    applySharedModelSnapshotFromContainer(historyEntryId: string, snapshot: any): Promise<void>;
 }

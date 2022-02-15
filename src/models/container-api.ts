@@ -1,11 +1,5 @@
 import { IJsonPatch } from "mobx-state-tree";
-
-export interface TreeChangeEntry {
-    treeId: string;
-    actionName: string;
-    patches: readonly IJsonPatch[];
-    inversePatches: readonly IJsonPatch[];
-}
+import { TreePatchRecordSnapshot } from "./history";
 
 export interface ContainerAPI {
     /**
@@ -24,7 +18,7 @@ export interface ContainerAPI {
      * from an undo or redo, the tiles will explicitly not update their related objects
      * because they will receive patches that should contain these changes separately.
      */
-    updateSharedModel: (containerActionId: string, sourceTreeId: string, snapshot: any) => Promise<void>;
+    updateSharedModel: (historyEntryId: string, sourceTreeId: string, snapshot: any) => Promise<void>;
     
     /**
      * Trees should call this to send new changes to the container. These
@@ -37,13 +31,13 @@ export interface ContainerAPI {
      * `applyPatchesFromUndo`.
      *
      * When the user does an undo the container will send the inversePatches of
-     * the the change entries that are grouped by the containerActionId to the
+     * the the change entries that are grouped by the historyEntryId to the
      * tree with `applyPatchesFromUndo`.
      *
-     * @param containerActionId should be a UUID. If this tree is initiating
+     * @param historyEntryId should be a UUID. If this tree is initiating
      * this action it should generate a new UUID.  If the changes in this entry
      * were triggered via an `applySharedModelSnapshotFromContainer` call this
-     * id should be the `containerActionId` that was passed to the tree by
+     * id should be the `historyEntryId` that was passed to the tree by
      * `applySharedModelSnapshotFromContainer`.
      *
      * @param treeChangeEntry This contains the patches and inversePatches of
@@ -53,7 +47,25 @@ export interface ContainerAPI {
      * stack. Changes that result from `applyPatchesFromUndo` should not be
      * undo-able.
      */    
-    recordActionStart: (containerActionId: string, treeId: string, actionName: string, undoable: boolean) => void;
+    addHistoryEntry: (entryId: string, treeId: string, actionName: string, undoable: boolean) => void;
     
-    recordActionChanges: (containerActionId: string, treeChangeEntry: TreeChangeEntry) => void;
+    /**
+     *
+     * TODO: there is no "finish" event. So in a system that is sharing document
+     * changes it won't be possible to know when to send the history entry to
+     * the other computers. Perhaps it is best to just send the patch records as
+     * they come in. The problem will be replaying them. So without a "finish"
+     * event we'd have to use some kind of timer to know when the history entry
+     * is done. 
+     *
+     * Adding a "finish" event is hard. We don't know which trees will be
+     * affected by any changes to the shared model, and whether those trees
+     * might trigger updates in other shared models which can cascade down. Each
+     * time a tree gets an updated from the container it would have to respond
+     * to the container about which shared models it is updating. Then the
+     * container can know which trees that shared model is used by and wait for
+     * that complete as well as waiting for responses about updates that those
+     * trees might be making.
+     */
+    addTreePatchRecord: (historyEntryId: string, record: TreePatchRecordSnapshot) => void;
 }

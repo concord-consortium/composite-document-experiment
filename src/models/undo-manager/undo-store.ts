@@ -1,47 +1,11 @@
 import {
-    types, IJsonPatch, Instance, getSnapshot, getEnv, flow, getParent
+    types, Instance, getSnapshot, getEnv, flow, getParent
 } from "mobx-state-tree";
 import { v4 as uuidv4 } from "uuid";
 import { DocumentStore } from "../document-store";
 
 import { TreeAPI } from "../tree-api";
-
-// I don't know if it is worth making this a MST model
-// we aren't planning to save the undo stack across sessions
-// But this approach lets me follow a pattern common to the 
-// rest of the code. 
-export const TreeUndoEntry = types.model("TreeUndoEntry", {
-    treeId: types.string,
-    actionName: types.string,
-    patches: types.frozen<ReadonlyArray<IJsonPatch>>(),
-    inversePatches: types.frozen<ReadonlyArray<IJsonPatch>>()
-})
-.views(self => ({
-    getPatches(opType: OperationType) {
-        switch (opType) {
-            case OperationType.Undo:
-                return self.inversePatches.slice().reverse();
-            case OperationType.Redo:
-                return self.patches;
-        }
-    }
-}));
-
-export const UndoEntry = types.model("UndoEntry", {
-    containerActionId: types.identifier,
-    initialTreeId: types.maybe(types.string),
-    name: types.maybe(types.string),
-    // This doesn't need to be recorded in the state, but putting it here is
-    // the easiest place for now.
-    undoable: types.maybe(types.boolean),  
-    created: types.optional(types.Date, () => new Date()),
-    treeEntries: types.array(TreeUndoEntry)
-});
-
-enum OperationType {
-    Undo = "undo",
-    Redo = "redo",
-}
+import { HistoryEntry, HistoryOperation } from "../history";
 
 interface Environment {
     getTreeFromId: (treeId: string) => TreeAPI;
@@ -49,7 +13,7 @@ interface Environment {
 
 export const UndoStore = types
     .model("UndoStore", {
-        history: types.array(types.reference(UndoEntry)),
+        history: types.array(types.reference(HistoryEntry)),
         undoIdx: 0
     })
     .views((self) => ({
@@ -65,26 +29,26 @@ export const UndoStore = types
         get canRedo() {
             return this.redoLevels > 0;
         },
-        undoEntry(containerActionId: string) {
-            return self.history.find(entry => entry.containerActionId === containerActionId);
+        findHistoryEntry(historyEntryId: string) {
+            return self.history.find(entry => entry.id === historyEntryId);
         }
     }))
     .actions((self) => {
         // This is asynchronous. We might as well use a flow so we don't have to 
         // create separate actions for each of the parts of this single action
-        const applyPatchesToTrees = flow(function* applyPatchesToTrees(entryToUndo: Instance<typeof UndoEntry>, opType: OperationType ) {
+        const applyPatchesToTrees = flow(function* applyPatchesToTrees(entryToUndo: Instance<typeof HistoryEntry>, opType: HistoryOperation ) {
             const getTreeFromId = (getEnv(self) as Environment).getTreeFromId;
-            const treeEntries = entryToUndo.treeEntries;
+            const treeEntries = entryToUndo.records;
 
-            const containerActionId = uuidv4();
+            const historyEntryId = uuidv4();
 
             // Start a non-undoable action with this id
             const docStore = getParent(self) as Instance<typeof DocumentStore>;
-            docStore.createOrUpdateHistoryEntry(containerActionId, opType, "container", false);
+            docStore.createOrUpdateHistoryEntry(historyEntryId, opType, "container", false);
 
             // first disable shared model syncing in the tree
             const startPromises = treeEntries.map(treeEntry => {
-                return getTreeFromId(treeEntry.treeId).startApplyingContainerPatches(containerActionId);
+                return getTreeFromId(treeEntry.tree).startApplyingContainerPatches(historyEntryId);
             });
             yield Promise.all(startPromises);
 
@@ -95,7 +59,7 @@ export const UndoStore = types
                 // state to all tiles. If this is working properly the promise returned by
                 // the shared model's applyPatchesFromUndo will not resolve until all tiles
                 // using it have updated their view of the shared model.
-                return getTreeFromId(treeEntry.treeId).applyPatchesFromUndo(containerActionId, treeEntry.getPatches(opType));
+                return getTreeFromId(treeEntry.tree).applyPatchesFromUndo(historyEntryId, treeEntry.getPatches(opType));
             });
             yield Promise.all(applyPromises);
 
@@ -106,7 +70,7 @@ export const UndoStore = types
             // This can be used in the future to make sure multiple applyPatchesToTrees are not 
             // running at the same time.
             const finishPromises = treeEntries.map(treeEntry => {
-                return getTreeFromId(treeEntry.treeId).finishApplyingContainerPatches(containerActionId);
+                return getTreeFromId(treeEntry.tree).finishApplyingContainerPatches(historyEntryId);
             });
             // I'm using a yield because it isn't clear from the docs if an flow MST action
             // can return a promise or not.
@@ -114,18 +78,19 @@ export const UndoStore = types
         });
 
         return {
-            addUndoEntry(undoEntry: Instance<typeof UndoEntry>) {
-                // Find if there is already an UndoEntry with this
-                // containerActionId. This action is called each time new
-                // changes are added to the undoEntry, and we don't want
-                // duplicates.
+            addHistoryEntry(entry: Instance<typeof HistoryEntry>) {
+                // Find if there is already an HistoryEntry with this
+                // historyEntryId. This action is called each time a new
+                // TreePatchRecord is added to the HistoryEntry. If the
+                // HistoryEntry has already been added then we don't modify it,
+                // but we do always reset the undoIdx to the end of the history.
                 
-                const existingEntry = self.undoEntry(undoEntry.containerActionId);
+                const existingEntry = self.findHistoryEntry(entry.id);
                 if (!existingEntry) {
                     // This is a new user action, so if they had undone some amount already
                     // we delete the part of the history that was past this undone point
                     self.history.splice(self.undoIdx);
-                    self.history.push(undoEntry);
+                    self.history.push(entry);
                 }
     
                 // Reset the undoIdx to the end of the history, this is because it is a 
@@ -158,7 +123,7 @@ export const UndoStore = types
                 //
                 // FIXME: we aren't actually calling this as an action and we
                 // aren't waiting for it finish before returning
-                applyPatchesToTrees(entryToUndo, OperationType.Undo);
+                applyPatchesToTrees(entryToUndo, HistoryOperation.Undo);
 
                 self.undoIdx--;
             },
@@ -173,7 +138,7 @@ export const UndoStore = types
                 //
                 // FIXME: we aren't actually calling this as an action and we
                 // aren't waiting for it finish before returning
-                applyPatchesToTrees(entryToRedo, OperationType.Redo);
+                applyPatchesToTrees(entryToRedo, HistoryOperation.Redo);
     
                 self.undoIdx++;
             },        

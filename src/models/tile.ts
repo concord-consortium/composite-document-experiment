@@ -11,7 +11,7 @@ export const Tile = Tree.named("Tile")
     // it reacts to.
     // It isn't possible to just use existing MobX autorun because we need 
     // this to run as an action so we can track any changes made with the 
-    // same containerActionId that was triggered the changes to the shared model
+    // same historyEntryId that was triggered the changes to the shared model
     updateTreeAfterSharedModelChanges() {
         throw new Error("This action needs to be overridden by the tile");
     },

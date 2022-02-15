@@ -39,11 +39,11 @@ export const Tree = types.model("Tree", {
             // so then we can construct the map from sharedModels map.
             const sharedModelsConfig: SharedModelsConfig = {};
             Object.values(self.sharedModels).forEach(model => {
-                sharedModelsConfig[getPath(model)] = (containerActionId, call) => {
+                sharedModelsConfig[getPath(model)] = (historyEntryId, call) => {
 
                     // Note: the environment of the call will be undefined because the undoRecorder cleared 
                     // it out before it calling this function
-                    console.log(`observed changes in sharedModel: ${model.id} of tile: ${self.id}`, {containerActionId, action: call});
+                    console.log(`observed changes in sharedModel: ${model.id} of tile: ${self.id}`, {historyEntryId, action: call});
 
                     // What is tricky is that this is being called when the snapshot is applied by the
                     // sharedModel syncing code "sendSnapshotToSharedMode". In that case we want to do
@@ -56,7 +56,7 @@ export const Tree = types.model("Tree", {
                         // stack
                         const snapshot = getSnapshot(model); 
                         
-                        containerAPI().updateSharedModel(containerActionId, self.id, snapshot);
+                        containerAPI().updateSharedModel(historyEntryId, self.id, snapshot);
                     }
 
                     // let the tile update its model based on the updates that were just applied to 
@@ -90,7 +90,7 @@ export const Tree = types.model("Tree", {
                     // view that triggered this handler in the first place. 
                     // However a developer might make a mistake. So it would be useful if
                     // we could identify the looping and notify them.
-                    this.updateTreeAfterSharedModelChangesInternal(containerActionId);
+                    this.updateTreeAfterSharedModelChangesInternal(historyEntryId);
 
                 };
             });
@@ -110,7 +110,7 @@ export const Tree = types.model("Tree", {
             createUndoRecorder(self as Instance<typeof Tree>, containerAPI(), false, sharedModelsConfig );
         },
 
-        updateTreeAfterSharedModelChangesInternal(containerActionId: string) {
+        updateTreeAfterSharedModelChangesInternal(historyEntryId: string) {
             // If we are applying container patches, then we ignore any sync actions
             // otherwise the user might make a change such as changing the name of a
             // node while the patches are applied. When they do this the patch for 
@@ -126,7 +126,7 @@ export const Tree = types.model("Tree", {
                 return;
             }
 
-            console.log("updating tree after shared models changes", {tree: self.id, containerActionId});
+            console.log("updating tree after shared models changes", {tree: self.id, historyEntryId});
             self.updateTreeAfterSharedModelChanges();
         },
 
@@ -138,7 +138,7 @@ export const Tree = types.model("Tree", {
 
         // This will be called by the container when a shared model tree changes
         // That would normally happen when a tile changed the shared model.
-        applySharedModelSnapshotFromContainer(containerActionId: string, snapshot: any) {
+        applySharedModelSnapshotFromContainer(historyEntryId: string, snapshot: any) {
             // Find the shared model by its id in our sharedModels list
             // then apply the snapshot to it
             const model = self.sharedModels[snapshot.id];
@@ -162,7 +162,7 @@ export const Tree = types.model("Tree", {
         },
 
         // The container calls this before it calls applyPatchesFromUndo
-        startApplyingContainerPatches(containerActionId: string) {
+        startApplyingContainerPatches(historyEntryId: string) {
             self.applyingContainerPatches = true;
 
             // We return a promise because the API is async
@@ -175,7 +175,7 @@ export const Tree = types.model("Tree", {
         // also by giving it an action name the undo recorder can identify that
         // this action by its name and not record the undo as an undo
         // It might be called multiple times after startApplyingContainerPatches
-        applyPatchesFromUndo(containerActionId: string, patchesToApply: readonly IJsonPatch[]) {
+        applyPatchesFromUndo(historyEntryId: string, patchesToApply: readonly IJsonPatch[]) {
             applyPatch(self, patchesToApply);
             // We return a promise because the API is async
             // The action itself doesn't do anything asynchronous though
@@ -184,7 +184,7 @@ export const Tree = types.model("Tree", {
         },
 
         // The container calls this after all patches have been applied
-        finishApplyingContainerPatches(containerActionId: string) {
+        finishApplyingContainerPatches(historyEntryId: string) {
             self.applyingContainerPatches = false;
 
             // TODO: Need to deal with possible effects on the undo stack

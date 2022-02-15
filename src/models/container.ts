@@ -5,8 +5,8 @@ import { DQRoot } from "./diagram/dq-root";
 import { ItemList } from "./item-list/item-list";
 import { SharedModel } from "./shared-model/shared-model";
 import { Tree } from "./tree";
-import { ContainerAPI, TreeChangeEntry } from "./container-api";
-import { TreeUndoEntry } from "./undo-manager/undo-store";
+import { ContainerAPI } from "./container-api";
+import { TreePatchRecord, TreePatchRecordSnapshot } from "./history";
 import { TreeProxy } from "./tree-proxy";
 import { TreeAPI } from "./tree-api";
 import { DocumentStore } from "./document-store";
@@ -37,7 +37,7 @@ export const Container = (initialDocument: any) => {
   const undoStore = documentStore.undoStore;
 
   const containerAPI: ContainerAPI = {
-    updateSharedModel: (containerActionId: string, sourceTreeId: string, snapshot: any) => {
+    updateSharedModel: (historyEntryId: string, sourceTreeId: string, snapshot: any) => {
       // Right now this is can be called in 2 cases:
       // 1. when a user changes something in a tile which 
       //    then updates the tile's view of the shared model, so the tile wants all copies
@@ -54,27 +54,27 @@ export const Container = (initialDocument: any) => {
 
         console.log(`repeating changes to ${treeId}`, snapshot);
 
-        return tree.applySharedModelSnapshotFromContainer(containerActionId, snapshot);
+        return tree.applySharedModelSnapshotFromContainer(historyEntryId, snapshot);
       });
       // The contract for this method is to return a Promise<void> so we need the extra
       // then() at the end to do this.
       return Promise.all(applyPromises).then();
     },
-    recordActionStart: (containerActionId: string, treeId: string, actionName: string, undoable: boolean) => {
+    addHistoryEntry: (historyEntryId: string, treeId: string, actionName: string, undoable: boolean) => {
       // The reason we have this separate recordActionStart is so we can record
       // the top level treeId and name of actions in tiles that are only
       // changing the shared model. An example in the current code is when the
       // name of a node is changed.
-      console.log("starting action", {containerActionId, treeId, actionName, undoable});
-      documentStore.createOrUpdateHistoryEntry(containerActionId, actionName, treeId, undoable);
+      console.log("starting action", {historyEntryId, treeId, actionName, undoable});
+      documentStore.createOrUpdateHistoryEntry(historyEntryId, actionName, treeId, undoable);
     },
-    recordActionChanges: (containerActionId: string, treeChangeEntry: TreeChangeEntry) => {
-      console.log("recording action", treeChangeEntry);
+    addTreePatchRecord: (historyEntryId: string, record: TreePatchRecordSnapshot) => {
+      console.log("recording action", record);
 
       // When the entry already exists the documentStore will add to it.
       // If the entry doesn't exist yet because this was called before
       // recordActionStart then it will be created. 
-      documentStore.addPatchesToHistoryEntry(containerActionId, TreeUndoEntry.create(treeChangeEntry));
+      documentStore.addPatchesToHistoryEntry(historyEntryId, TreePatchRecord.create(record));
     }
   };
 

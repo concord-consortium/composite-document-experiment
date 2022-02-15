@@ -53,7 +53,7 @@ export const SharedModel = types.model("SharedModel", {
         // We override the Tree implementation of this action here
         // We might be able to use the Tree implementation, but overriding it
         // keeps things more simple for now.
-        applySharedModelSnapshotFromContainer(containerActionId: string, snapshot: any) {
+        applySharedModelSnapshotFromContainer(historyEntryId: string, snapshot: any) {
             // make sure this snapshot is for our shared model and not some other
             // shared model
             if (snapshot.id !== self.id) {
@@ -71,7 +71,7 @@ export const SharedModel = types.model("SharedModel", {
 
         // Override this from Tree so we can also tell the container to update the
         // views of the shared model in all of the other trees
-        applyPatchesFromUndo(containerActionId: string, patchesToApply: readonly IJsonPatch[]) {
+        applyPatchesFromUndo(historyEntryId: string, patchesToApply: readonly IJsonPatch[]) {
             applyPatch(self, patchesToApply);
 
             // We need to wait for confirmation that all tiles have updated their shared 
@@ -110,7 +110,7 @@ export const SharedModel = types.model("SharedModel", {
             // all been applied to the tiles
             // TODO: it seems like there might be a case where the promise chain could get really
             // long. I want to trace this through to see how long this could get.
-            return delay(150).then(() => containerAPI().updateSharedModel(containerActionId, self.id, getSnapshot(self)));
+            return delay(150).then(() => containerAPI().updateSharedModel(historyEntryId, self.id, getSnapshot(self)));
         },
     };
 });

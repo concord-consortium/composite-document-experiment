@@ -3,7 +3,8 @@ import {
 } from "mobx-state-tree";
 import { v4 as uuidv4 } from "uuid";
 import { TreeAPI } from "./tree-api";
-import { TreeUndoEntry, UndoEntry, UndoStore } from "./undo-manager/undo-store";
+import { UndoStore } from "./undo-manager/undo-store";
+import { TreePatchRecord, HistoryEntry } from "./history";
 
 interface Environment {
     getTreeFromId: (treeId: string) => TreeAPI | undefined;
@@ -11,7 +12,10 @@ interface Environment {
 
 export const CDocument = types
     .model("CDocument", {
-        history: types.array(UndoEntry)
+        // TODO: switch to a map, so we get faster lookups in the map and MST can
+        // do better at applying snapshots and patches by reusing existing
+        // objects. 
+        history: types.array(HistoryEntry)
     });
 
 // TODO: since we are sharing the types with the undo store we should give them
@@ -26,51 +30,51 @@ export const DocumentStore = types
         undoStore: UndoStore,
     })
     .views((self) => ({
-        undoEntry(containerActionId: string) {
-            return self.document.history.find(entry => entry.containerActionId === containerActionId);
+        findHistoryEntry(historyEntryId: string) {
+            return self.document.history.find(entry => entry.id === historyEntryId);
         }
     }))
     .actions((self) => {
 
-        const createOrUpdateHistoryEntry = (containerActionId: string, name: string, treeId: string, undoable: boolean) => {
-            let entry = self.undoEntry(containerActionId);
+        const createOrUpdateHistoryEntry = (historyEntryId: string, name: string, treeId: string, undoable: boolean) => {
+            let entry = self.findHistoryEntry(historyEntryId);
             if (!entry) {
-                entry = UndoEntry.create({containerActionId});
+                entry = HistoryEntry.create({id: historyEntryId});
                 self.document.history.push(entry);
             } 
             // update the new or existing entry
-            entry.name = name;
-            entry.initialTreeId = treeId;
+            entry.action = name;
+            entry.tree = treeId;
             entry.undoable = undoable;
 
             // Only add it to the undo stack if it has changes. This means
             // it must have existed before.
-            if (undoable && entry.treeEntries.length > 0) {
-                self.undoStore.addUndoEntry(entry);
+            if (undoable && entry.records.length > 0) {
+                self.undoStore.addHistoryEntry(entry);
             }
 
         };
 
-        const addPatchesToHistoryEntry = (containerActionId: string, treeUndoEntry: Instance<typeof TreeUndoEntry>) => {
-            // Find if there is already an UndoEntry with this containerActionId
-            let entry = self.undoEntry(containerActionId);
+        const addPatchesToHistoryEntry = (historyEntryId: string, treeUndoEntry: Instance<typeof TreePatchRecord>) => {
+            // Find if there is already an UndoEntry with this historyEntryId
+            let entry = self.findHistoryEntry(historyEntryId);
             if (!entry) {
                 // This is a new user action, normally
                 // createOrUpdateHistoryEntry would have been called first
                 // but it is better to handle the out of order case here so
                 // we don't have to deal with synchronizing the two calls.
-                entry = UndoEntry.create({containerActionId});
+                entry = HistoryEntry.create({id: historyEntryId});
                 self.document.history.push(entry);
             }
 
-            entry.treeEntries.push(treeUndoEntry);
+            entry.records.push(treeUndoEntry);
 
             // add the entry to the undo stack if it is undoable
             // the entry is shared with the document, so when the code above
             // updates it with the treeUndoEntry that will apply to the undo
             // stack too. 
             if (entry.undoable) {
-                self.undoStore.addUndoEntry(entry);
+                self.undoStore.addHistoryEntry(entry);
             }
         };
 
@@ -80,19 +84,19 @@ export const DocumentStore = types
             const getTreeFromId = (getEnv(self) as Environment).getTreeFromId;
             const trees = Object.values(treeMap);
 
-            const containerActionId = uuidv4();
+            const historyEntryId = uuidv4();
             // Start a non-undoable action with this id. Currently the trees do
             // not have their undoRecorders setup at this point, so we should
-            // not see any patches with this containerActionId.
+            // not see any patches with this historyEntryId.
             // However, it seems good to go ahead and record this anyway.
-            createOrUpdateHistoryEntry(containerActionId, "replayHistoryToTrees", "container", false);
+            createOrUpdateHistoryEntry(historyEntryId, "replayHistoryToTrees", "container", false);
 
             // For now we are going to try to disable shared model syncing on
             // all of the trees. This is different than when the undo patches
             // are applied because we are going to apply lots of undoable
             // actions all at once. 
             const startPromises = trees.map(tree => {
-                return tree.startApplyingContainerPatches(containerActionId);
+                return tree.startApplyingContainerPatches(historyEntryId);
             });
             yield Promise.all(startPromises);
 
@@ -114,8 +118,8 @@ export const DocumentStore = types
             Object.keys(treeMap).forEach(treeId => treePatches[treeId] = []);
 
             self.document.history.forEach(entry => {
-                entry.treeEntries.forEach(treeEntry => {
-                    const patches = treePatches[treeEntry.treeId];
+                entry.records.forEach(treeEntry => {
+                    const patches = treePatches[treeEntry.tree];
                     patches?.push(...treeEntry.patches);
                 });
             });
@@ -125,7 +129,7 @@ export const DocumentStore = types
             const applyPromises = Object.entries(treePatches).map(([treeId, patches]) => {
                 if (patches && patches.length > 0) {
                     const tree = getTreeFromId(treeId);
-                    return tree?.applyPatchesFromUndo(containerActionId, patches);
+                    return tree?.applyPatchesFromUndo(historyEntryId, patches);
                 } 
             });
             yield Promise.all(applyPromises);
@@ -138,7 +142,7 @@ export const DocumentStore = types
             // This can be used in the future to make sure multiple applyPatchesToTrees are not 
             // running at the same time.
             const finishPromises = trees.map(tree => {
-                return tree.finishApplyingContainerPatches(containerActionId);
+                return tree.finishApplyingContainerPatches(historyEntryId);
             });
             // I'm using a yield because it isn't clear from the docs if an flow MST action
             // can return a promise or not.

@@ -39,20 +39,20 @@ export class TreeProxy implements TreeAPI {
         this.tree = tree;
     }
 
-    startApplyingContainerPatches(containerActionId: string) {
+    startApplyingContainerPatches(historyEntryId: string) {
         return delay(0)
-        .then(() => this.tree.startApplyingContainerPatches(containerActionId));
+        .then(() => this.tree.startApplyingContainerPatches(historyEntryId));
     }
-    applyPatchesFromUndo(containerActionId: string, patchesToApply: readonly IJsonPatch[]) {
+    applyPatchesFromUndo(historyEntryId: string, patchesToApply: readonly IJsonPatch[]) {
         return delay(100)
-        .then(() => this.tree.applyPatchesFromUndo(containerActionId, patchesToApply));
+        .then(() => this.tree.applyPatchesFromUndo(historyEntryId, patchesToApply));
     }
-    finishApplyingContainerPatches(containerActionId: string) {
+    finishApplyingContainerPatches(historyEntryId: string) {
         return delay(0)
-        .then(() => this.tree.finishApplyingContainerPatches(containerActionId));
+        .then(() => this.tree.finishApplyingContainerPatches(historyEntryId));
     }
-    applySharedModelSnapshotFromContainer(containerActionId: string, snapshot: any) {
+    applySharedModelSnapshotFromContainer(historyEntryId: string, snapshot: any) {
         return delay(50)
-        .then(() => this.tree.applySharedModelSnapshotFromContainer(containerActionId, snapshot));
+        .then(() => this.tree.applySharedModelSnapshotFromContainer(historyEntryId, snapshot));
     }
 } 

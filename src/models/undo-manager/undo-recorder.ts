@@ -6,17 +6,18 @@ import {
     addDisposer, isActionContextThisOrChildOf, IActionTrackingMiddleware2Call, Instance
 } from "mobx-state-tree";
 import { v4 as uuidv4 } from "uuid";
-import { ContainerAPI, TreeChangeEntry } from "../container-api";
+import { ContainerAPI } from "../container-api";
+import { TreePatchRecordSnapshot } from "../history";
 import { Tree } from "../tree";
 
 interface CallEnv {
     recorder: IPatchRecorder;
     sharedModelModifications: SharedModelModifications;
-    containerActionId: string;
+    historyEntryId: string;
 }
 
 // A map of shared model paths to their update functions
-type SharedModelChangeHandler = (containerActionId: string, call: IActionTrackingMiddleware2Call<CallEnv>) => void;
+type SharedModelChangeHandler = (historyEntryId: string, call: IActionTrackingMiddleware2Call<CallEnv>) => void;
 export type SharedModelsConfig = Record<string, SharedModelChangeHandler>;
 type SharedModelModifications = Record<string, number>;
 
@@ -41,27 +42,27 @@ export const createUndoRecorder = (tree: Instance<typeof Tree>, container: Conta
             // Initialize how we record the shared model changes
             sharedModelPaths.forEach((path) => sharedModelModifications[path] = 0);
 
-            let containerActionId;
+            let historyEntryId;
 
             // TODO: this seems like a bit of a hack. We are looking for specific actions
-            // which we know include a containerActionId as their first argument
-            // this is so we can link all of the changes with this same containerActionId
+            // which we know include a historyEntryId as their first argument
+            // this is so we can link all of the changes with this same historyEntryId
             // These actions are all defined on the common `Tree` model which is
             // composed into the actual tiles and shared models. So at least
             // the specific trees are not defining these actions themselves.
             //
             // I can't think of a better way so far. 
             // If a function in this middleware could apply the snapshots and run the 
-            // syncing that would let us directly pass in the containerActionId. However
+            // syncing that would let us directly pass in the historyEntryId. However
             // we still need to record the changes in the undo history. So we still need
             // this to pass through as an action so the middleware can record it.
             //
             // We could use the `decorate` feature of MST to at least make it more clear
             // in the Tile model that these actions are special. 
             if (isActionFromContainer(call)) {
-                containerActionId = call.args[0];
+                historyEntryId = call.args[0];
             } else {
-               containerActionId = uuidv4();
+                historyEntryId = uuidv4();
             }
 
             const recorder = recordPatches(
@@ -98,19 +99,19 @@ export const createUndoRecorder = (tree: Instance<typeof Tree>, container: Conta
             call.env = {
                 recorder,
                 sharedModelModifications,
-                containerActionId
+                historyEntryId
             };
         },
         onFinish(call, error) {
-            const { recorder, sharedModelModifications, containerActionId } = call.env || {};
-            if (!recorder || !sharedModelModifications || !containerActionId) {
+            const { recorder, sharedModelModifications, historyEntryId } = call.env || {};
+            if (!recorder || !sharedModelModifications || !historyEntryId) {
                 throw new Error("The call.env is corrupted");
             }
             call.env = undefined;
             recorder.stop();
 
             if (error === undefined) {
-                recordAction(call, containerActionId, recorder, sharedModelModifications);
+                recordAction(call, historyEntryId, recorder, sharedModelModifications);
             } else {
                 // TODO: This is kind of a new feature that is being added to the tree by the undo manager
                 // any errors that happen during an action will cause the tree to revert back to 
@@ -159,7 +160,7 @@ export const createUndoRecorder = (tree: Instance<typeof Tree>, container: Conta
     // ge a good thing to do.
     addDisposer(tree, middlewareDisposer);
 
-    const recordAction = (call: IActionTrackingMiddleware2Call<CallEnv>, containerActionId: string, 
+    const recordAction = (call: IActionTrackingMiddleware2Call<CallEnv>, historyEntryId: string, 
         recorder: IPatchRecorder, sharedModelModifications: SharedModelModifications) => {    
         if (!isActionFromContainer(call)) {
             // We record the start of the action even if it doesn't have any
@@ -169,18 +170,18 @@ export const createUndoRecorder = (tree: Instance<typeof Tree>, container: Conta
             // We only record this when the action is triggered by the
             // container. If the container triggered the action then it is up to
             // the container to setup this information first.
-            container.recordActionStart(containerActionId, tree.id, call.name, true);
+            container.addHistoryEntry(historyEntryId, tree.id, call.name, true);
         }
     
         // Only send the changes to the container if there are some
         if (recorder.patches.length > 0) {
-            const treeChangeEntry: TreeChangeEntry = {
-                treeId: tree.id,
-                actionName: call.name,
+            const record: TreePatchRecordSnapshot = {
+                tree: tree.id,
+                action: call.name,
                 patches: recorder.patches,
                 inversePatches: recorder.inversePatches,
             };
-            container.recordActionChanges(containerActionId, treeChangeEntry);
+            container.addTreePatchRecord(historyEntryId, record);
         }
 
         // Call the shared model notification function if there are changes. 
@@ -192,7 +193,7 @@ export const createUndoRecorder = (tree: Instance<typeof Tree>, container: Conta
         Object.entries(sharedModelModifications).forEach(([path, numModifications]) => {
             if (numModifications > 0) {
                 // Run the callback tracking changes to the shared model
-                sharedModelsConfig[path](containerActionId, call);
+                sharedModelsConfig[path](historyEntryId, call);
             }
         });
     };
