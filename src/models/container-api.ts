@@ -1,4 +1,3 @@
-import { IJsonPatch } from "mobx-state-tree";
 import { TreePatchRecordSnapshot } from "./history";
 
 export interface ContainerAPI {
