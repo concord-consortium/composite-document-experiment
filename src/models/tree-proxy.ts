@@ -43,7 +43,7 @@ export class TreeProxy implements TreeAPI {
         return delay(0)
         .then(() => this.tree.startApplyingContainerPatches(historyEntryId));
     }
-    applyPatchesFromUndo(historyEntryId: string, patchesToApply: readonly IJsonPatch[]) {
+    applyContainerPatches(historyEntryId: string, patchesToApply: readonly IJsonPatch[]) {
         return delay(100)
         .then(() => this.tree.applyPatchesFromUndo(historyEntryId, patchesToApply));
     }

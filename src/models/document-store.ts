@@ -129,7 +129,7 @@ export const DocumentStore = types
             const applyPromises = Object.entries(treePatches).map(([treeId, patches]) => {
                 if (patches && patches.length > 0) {
                     const tree = getTreeFromId(treeId);
-                    return tree?.applyPatchesFromUndo(historyEntryId, patches);
+                    return tree?.applyContainerPatches(historyEntryId, patches);
                 } 
             });
             yield Promise.all(applyPromises);

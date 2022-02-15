@@ -71,7 +71,7 @@ export const SharedModel = types.model("SharedModel", {
 
         // Override this from Tree so we can also tell the container to update the
         // views of the shared model in all of the other trees
-        applyPatchesFromUndo(historyEntryId: string, patchesToApply: readonly IJsonPatch[]) {
+        applyContainerPatches(historyEntryId: string, patchesToApply: readonly IJsonPatch[]) {
             applyPatch(self, patchesToApply);
 
             // We need to wait for confirmation that all tiles have updated their shared 

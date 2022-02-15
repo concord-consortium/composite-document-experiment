@@ -36,7 +36,7 @@ export interface TreeAPI {
      * It will be called after startApplyingContainerPatches. The patches should
      * be applied in order starting from the first in the array.
      */
-    applyPatchesFromUndo(historyEntryId: string, patchesToApply: readonly IJsonPatch[]): Promise<void>;
+    applyContainerPatches(historyEntryId: string, patchesToApply: readonly IJsonPatch[]): Promise<void>;
 
     /**
      * This is called after the container has applied all of the undo patches.

@@ -59,7 +59,7 @@ export const UndoStore = types
                 // state to all tiles. If this is working properly the promise returned by
                 // the shared model's applyPatchesFromUndo will not resolve until all tiles
                 // using it have updated their view of the shared model.
-                return getTreeFromId(treeEntry.tree).applyPatchesFromUndo(historyEntryId, treeEntry.getPatches(opType));
+                return getTreeFromId(treeEntry.tree).applyContainerPatches(historyEntryId, treeEntry.getPatches(opType));
             });
             yield Promise.all(applyPromises);
 
