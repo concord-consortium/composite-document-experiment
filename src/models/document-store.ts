@@ -55,8 +55,8 @@ export const DocumentStore = types
 
         };
 
-        const addPatchesToHistoryEntry = (historyEntryId: string, treeUndoEntry: Instance<typeof TreePatchRecord>) => {
-            // Find if there is already an UndoEntry with this historyEntryId
+        const addPatchesToHistoryEntry = (historyEntryId: string, treePatchRecord: Instance<typeof TreePatchRecord>) => {
+            // Find if there is already an entry with this historyEntryId
             let entry = self.findHistoryEntry(historyEntryId);
             if (!entry) {
                 // This is a new user action, normally
@@ -67,12 +67,11 @@ export const DocumentStore = types
                 self.document.history.push(entry);
             }
 
-            entry.records.push(treeUndoEntry);
+            entry.records.push(treePatchRecord);
 
-            // add the entry to the undo stack if it is undoable
-            // the entry is shared with the document, so when the code above
-            // updates it with the treeUndoEntry that will apply to the undo
-            // stack too. 
+            // Add the entry to the undo stack if it is undoable. The entry is
+            // shared with the document store, so when new records are added
+            // they are added to the undo stack too.
             if (entry.undoable) {
                 self.undoStore.addHistoryEntry(entry);
             }
@@ -86,15 +85,16 @@ export const DocumentStore = types
 
             const historyEntryId = uuidv4();
             // Start a non-undoable action with this id. Currently the trees do
-            // not have their undoRecorders setup at this point, so we should
-            // not see any patches with this historyEntryId.
-            // However, it seems good to go ahead and record this anyway.
+            // not have their treeMonitors setup when replayHistoryToTrees is
+            // called, so the container should not receive any patches with this
+            // historyEntryId. However, it seems good to go ahead and record
+            // this anyway.
             createOrUpdateHistoryEntry(historyEntryId, "replayHistoryToTrees", "container", false);
 
-            // For now we are going to try to disable shared model syncing on
-            // all of the trees. This is different than when the undo patches
-            // are applied because we are going to apply lots of undoable
-            // actions all at once. 
+            // Disable shared model syncing on all of the trees. This is
+            // different than when the undo store applies patches because in
+            // this case we are going to apply lots of history entries all at
+            // once. 
             const startPromises = trees.map(tree => {
                 return tree.startApplyingContainerPatches(historyEntryId);
             });
@@ -102,17 +102,18 @@ export const DocumentStore = types
 
             // apply the patches to all trees
 
-            // iterate initialDocument.history
-            // Because sending a few patches at a time and waiting for
-            // confirmation that they have been applied is limited by the
-            // latency of the connection. This code groups all of the patches
-            // for a particular tree into one array and then sends that single
-            // array to the tree.
+            // iterate initialDocument.history This code groups all of the
+            // patches for a particular tree into one array. This is done
+            // instead of sending just the patches for each history entry one at
+            // a time. This approach is taken, because sending the patch records
+            // one at a time and waiting for confirmation that they have been
+            // applied is limited by the latency of the connection to the tree.
             //
             // This single array of changes might be a problem for large
-            // documents so we might have to page the array, and send
-            // information about the order of the pages so the tree receiving
-            // them can make sure it is getting them in the right order.
+            // documents so we might have to split the array into pages, and
+            // send information about the order of the pages so the tree
+            // receiving them can make sure it is getting them in the right
+            // order.
             //
             const treePatches: Record<string, IJsonPatch[] | undefined> = {};
             Object.keys(treeMap).forEach(treeId => treePatches[treeId] = []);
