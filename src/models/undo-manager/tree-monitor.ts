@@ -215,7 +215,7 @@ export const addTreeMonitor = (tree: Instance<typeof Tree>, container: Container
 function isActionFromContainer(call: IActionTrackingMiddleware2Call<CallEnv>) {
     return call.name === "applySharedModelSnapshotFromContainer" ||
         call.name === "updateTreeAfterSharedModelChangesInternal" ||
-        call.name === "applyPatchesFromUndo" ||
+        call.name === "applyContainerPatches" ||
         call.name === "startApplyingContainerPatches" ||
         call.name === "finishApplyingContainerPatches";
 }

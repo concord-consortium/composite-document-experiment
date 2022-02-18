@@ -175,7 +175,7 @@ export const Tree = types.model("Tree", {
         // also by giving it an action name the undo recorder can identify that
         // this action by its name and not record the undo as an undo
         // It might be called multiple times after startApplyingContainerPatches
-        applyPatchesFromUndo(historyEntryId: string, patchesToApply: readonly IJsonPatch[]) {
+        applyContainerPatches(historyEntryId: string, patchesToApply: readonly IJsonPatch[]) {
             applyPatch(self, patchesToApply);
             // We return a promise because the API is async
             // The action itself doesn't do anything asynchronous though
