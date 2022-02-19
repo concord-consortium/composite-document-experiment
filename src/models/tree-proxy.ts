@@ -17,9 +17,9 @@ import { TreeAPI } from "./tree-api";
  *    tile.
  * 2. In this class the shared model changes coming from the container are
  *    applied before the patches for the tile which are sent in
- *    applyPatchesFromUndo
+ *    applyContainerPatches
  * 3. In the shared model tree implementation in `shared-model.ts`
- *    `applyPatchesFromUndo` delays sending its new state to the container until
+ *    `applyContainerPatches` delays sending its new state to the container until
  *    after all of the actions here.
  *
  * Notes: Steps 2 and 3 are in conflict. To test #2 you should set the delay in

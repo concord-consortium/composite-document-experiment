@@ -95,7 +95,7 @@ export const SharedModel = types.model("SharedModel", {
             // - the internal state associated with the node/item is lost (its position in the list,
             // or position on the diagram)
             // - the undo stack will be broken because there will be changes applied outside of 
-            //   applyPatchesFromUndo, so these changes are recorded on the undo stack. So now the next undo 
+            //   applyContainerPatches, so these changes are recorded on the undo stack. So now the next undo 
             //   will not go back in time, but instead just try to undo the mess that was caused
             //   before. From testing messed up undo stack has 3 entries added to the stack:
             //   1. finishApplyingContainerPatches on the diagram with a removal of the node

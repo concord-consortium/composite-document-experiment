@@ -27,11 +27,11 @@ export interface ContainerAPI {
      *
      * When the state is loaded the container will combine all of the patches of
      * all of the recorded change entries and send that to the tree with with
-     * `applyPatchesFromUndo`.
+     * `applyContainerPatches`.
      *
      * When the user does an undo the container will send the inversePatches of
      * the the change entries that are grouped by the historyEntryId to the
-     * tree with `applyPatchesFromUndo`.
+     * tree with `applyContainerPatches`.
      *
      * @param historyEntryId should be a UUID. If this tree is initiating
      * this action it should generate a new UUID.  If the changes in this entry
@@ -43,7 +43,7 @@ export interface ContainerAPI {
      * this change entry.
      *
      * @param undoableAction true if this action should be saved to the undo
-     * stack. Changes that result from `applyPatchesFromUndo` should not be
+     * stack. Changes that result from `applyContainerPatches` should not be
      * undo-able.
      */    
     addHistoryEntry: (historyEntryId: string, treeId: string, actionName: string, undoable: boolean) => void;

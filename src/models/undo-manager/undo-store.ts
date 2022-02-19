@@ -57,7 +57,7 @@ export const UndoStore = types
                 console.log(`send tile entry to ${opType} to the tree`, getSnapshot(treeEntry));
                 // When a patch is applied to shared model, it will send its updated
                 // state to all tiles. If this is working properly the promise returned by
-                // the shared model's applyPatchesFromUndo will not resolve until all tiles
+                // the shared model's applyContainerPatches will not resolve until all tiles
                 // using it have updated their view of the shared model.
                 return getTreeFromId(treeEntry.tree).applyContainerPatches(historyEntryId, treeEntry.getPatches(opType));
             });

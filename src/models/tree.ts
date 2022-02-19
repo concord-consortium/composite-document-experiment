@@ -46,7 +46,7 @@ export const Tree = types.model("Tree", {
                     console.log(`observed changes in sharedModel: ${model.id} of tile: ${self.id}`, {historyEntryId, action: call});
 
                     // What is tricky is that this is being called when the snapshot is applied by the
-                    // sharedModel syncing code "sendSnapshotToSharedMode". In that case we want to do
+                    // sharedModel syncing code "sendSnapshotToSharedModel". In that case we want to do
                     // the internal shared model sync, but we don't want to resend the snapshot to the 
                     // shared model. So the current approach is to look for the specific action that
                     // is applying this snapshot to the tile tree. 
@@ -161,7 +161,7 @@ export const Tree = types.model("Tree", {
             return Promise.resolve();
         },
 
-        // The container calls this before it calls applyPatchesFromUndo
+        // The container calls this before it calls applyContainerPatches
         startApplyingContainerPatches(historyEntryId: string) {
             self.applyingContainerPatches = true;
 
