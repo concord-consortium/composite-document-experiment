@@ -46,7 +46,7 @@ export interface ContainerAPI {
      * stack. Changes that result from `applyPatchesFromUndo` should not be
      * undo-able.
      */    
-    addHistoryEntry: (entryId: string, treeId: string, actionName: string, undoable: boolean) => void;
+    addHistoryEntry: (historyEntryId: string, treeId: string, actionName: string, undoable: boolean) => void;
     
     /**
      *
