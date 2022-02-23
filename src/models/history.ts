@@ -1,4 +1,5 @@
 import { types, IJsonPatch, SnapshotIn } from "mobx-state-tree";
+import { observable } from "mobx";
 
 export const TreePatchRecord = types.model("TreePatchRecord", {
     tree: types.string,
@@ -27,8 +28,16 @@ export const HistoryEntry = types.model("HistoryEntry", {
     // the easiest place for now.
     undoable: types.maybe(types.boolean),
     created: types.optional(types.Date, () => new Date()),
-    records: types.array(TreePatchRecord)
-});
+    records: types.array(TreePatchRecord),
+    // History entries are marked as recording, until all records have been added
+    state: types.optional(types.enumeration("HistoryEntryState", ["recording", "complete"]), "recording")
+})
+.volatile(self => ({
+    // TODO: is this the right usage of the observable map?
+    // I'm using number here just because we need a value, so we might as well
+    // record how many times an openCall is referenced
+    openCalls: observable.map<string, number>({}, {name: "openCalls"})
+}));
 
 export enum HistoryOperation {
     Undo = "undo",

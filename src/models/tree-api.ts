@@ -27,7 +27,7 @@ export interface TreeAPI {
      *
      * The `Tree` model implements this for you.
      */
-    startApplyingContainerPatches(historyEntryId: string): Promise<void>;
+    startApplyingContainerPatches(historyEntryId: string, callId: string): Promise<void>;
 
     /**
      * This is called when the container is doing an undo/redo or is loading the
@@ -39,14 +39,20 @@ export interface TreeAPI {
      *
      * @param historyEntryId the id of the history entry that will record all of
      * these changes to the tree. This is *not* the historyEntryId that is the
-     * source of the patches. 
-     * 
+     * source of the patches. This historyEntryId needs to be passed back when
+     * the tree records this change back to the container with
+     * addTreePatchRecord.
+     *
+     * @param callId the container uses this id to identify this specific set of
+     * patches. This callId needs to be passed back when the tree records this
+     * change back to the container with addTreePatchRecord.
+     *
      * @param patchesToApply an array of JSON patches to be applied to the
      * tile's tree. This is called by the container when doing an undo or redo.
      * It will be called after startApplyingContainerPatches. The patches should
      * be applied in order starting from the first in the array.
      */
-    applyContainerPatches(historyEntryId: string, patchesToApply: readonly IJsonPatch[]): Promise<void>;
+    applyContainerPatches(historyEntryId: string, callId: string, patchesToApply: readonly IJsonPatch[]): Promise<void>;
 
     /**
      * This is called after the container has applied all of the patches.
@@ -64,7 +70,7 @@ export interface TreeAPI {
      * source of the patches. 
      * 
      */
-    finishApplyingContainerPatches(historyEntryId: string): Promise<void>;
+    finishApplyingContainerPatches(historyEntryId: string, callId: string): Promise<void>;
 
     /**
      * The container calls this when something has updated a shared model. Which
@@ -112,5 +118,5 @@ export interface TreeAPI {
      * needs. For example with a data set shared model it could include just the
      * columns of data being used by this tree.
      */
-    applySharedModelSnapshotFromContainer(historyEntryId: string, snapshot: any): Promise<void>;
+    applySharedModelSnapshotFromContainer(historyEntryId: string, callId: string, snapshot: any): Promise<void>;
 }

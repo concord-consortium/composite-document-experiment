@@ -41,25 +41,41 @@ export const UndoStore = types
             const treeEntries = entryToUndo.records;
 
             const historyEntryId = uuidv4();
+            const callId = uuidv4();
 
             // Start a non-undoable action with this id
             const docStore = getParent(self) as Instance<typeof DocumentStore>;
-            docStore.createOrUpdateHistoryEntry(historyEntryId, opType, "container", false);
+            const historyEntry = 
+              docStore.createOrUpdateHistoryEntry(historyEntryId, callId, opType, "container", false);
 
             // first disable shared model syncing in the tree
             const startPromises = treeEntries.map(treeEntry => {
-                return getTreeFromId(treeEntry.tree).startApplyingContainerPatches(historyEntryId);
+                const startCallId = uuidv4();
+                docStore.startHistoryEntryCall(historyEntryId, startCallId);
+
+                return getTreeFromId(treeEntry.tree).startApplyingContainerPatches(historyEntryId, startCallId);
             });
             yield Promise.all(startPromises);
 
             // apply the patches to all trees
             const applyPromises = treeEntries.map(treeEntry => {
                 console.log(`send tile entry to ${opType} to the tree`, getSnapshot(treeEntry));
+
                 // When a patch is applied to shared model, it will send its updated
                 // state to all tiles. If this is working properly the promise returned by
                 // the shared model's applyContainerPatches will not resolve until all tiles
                 // using it have updated their view of the shared model.
-                return getTreeFromId(treeEntry.tree).applyContainerPatches(historyEntryId, treeEntry.getPatches(opType));
+
+                // We need a new callId for each apply call here, so each
+                // tree can finish the call when it calls addTreeRecordPatches.
+                // This new callId is added to the history entries volatile
+                // storage using startHistoryEntryCall. So now the history entry
+                // knows it needs to wait for this call to complete before
+                // marking the full entry as complete.
+                const applyCallId = uuidv4();
+                docStore.startHistoryEntryCall(historyEntryId, applyCallId);
+
+                return getTreeFromId(treeEntry.tree).applyContainerPatches(historyEntryId,  applyCallId, treeEntry.getPatches(opType));
             });
             yield Promise.all(applyPromises);
 
@@ -70,11 +86,19 @@ export const UndoStore = types
             // This can be used in the future to make sure multiple applyPatchesToTrees are not 
             // running at the same time.
             const finishPromises = treeEntries.map(treeEntry => {
-                return getTreeFromId(treeEntry.tree).finishApplyingContainerPatches(historyEntryId);
+                const finishCallId = uuidv4();
+                docStore.startHistoryEntryCall(historyEntryId, finishCallId);
+
+                return getTreeFromId(treeEntry.tree).finishApplyingContainerPatches(historyEntryId, finishCallId);
             });
-            // I'm using a yield because it isn't clear from the docs if an flow MST action
-            // can return a promise or not.
             yield Promise.all(finishPromises);
+
+            // TODO I'm closing the top level call after the finish Promises is
+            // called. This way the tree has a chance to add a new call to the
+            // history entry which will keep it being marked complete until that
+            // new call is also finished. It isn't clear if this is really
+            // needed though.
+            docStore.closeHistoryEntryCall(historyEntry, callId);
         });
 
         return {

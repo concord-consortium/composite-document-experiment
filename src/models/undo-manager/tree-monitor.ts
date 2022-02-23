@@ -14,10 +14,11 @@ interface CallEnv {
     recorder: IPatchRecorder;
     sharedModelModifications: SharedModelModifications;
     historyEntryId: string;
+    callId: string;
 }
 
 // A map of shared model paths to their update functions
-type SharedModelChangeHandler = (historyEntryId: string, call: IActionTrackingMiddleware2Call<CallEnv>) => void;
+type SharedModelChangeHandler = (historyEntryId: string, callId: string, call: IActionTrackingMiddleware2Call<CallEnv>) => void;
 export type SharedModelsConfig = Record<string, SharedModelChangeHandler>;
 type SharedModelModifications = Record<string, number>;
 
@@ -43,6 +44,7 @@ export const addTreeMonitor = (tree: Instance<typeof Tree>, container: Container
             sharedModelPaths.forEach((path) => sharedModelModifications[path] = 0);
 
             let historyEntryId;
+            let callId;
 
             // TODO: this seems like a bit of a hack. We are looking for specific actions
             // which we know include a historyEntryId as their first argument
@@ -61,8 +63,10 @@ export const addTreeMonitor = (tree: Instance<typeof Tree>, container: Container
             // in the Tile model that these actions are special. 
             if (isActionFromContainer(call)) {
                 historyEntryId = call.args[0];
+                callId = call.args[1];
             } else {
                 historyEntryId = uuidv4();
+                callId = uuidv4();
             }
 
             const recorder = recordPatches(
@@ -99,19 +103,25 @@ export const addTreeMonitor = (tree: Instance<typeof Tree>, container: Container
             call.env = {
                 recorder,
                 sharedModelModifications,
-                historyEntryId
+                historyEntryId,
+                callId
             };
         },
         onFinish(call, error) {
-            const { recorder, sharedModelModifications, historyEntryId } = call.env || {};
-            if (!recorder || !sharedModelModifications || !historyEntryId) {
-                throw new Error("The call.env is corrupted");
+            const { recorder, sharedModelModifications, historyEntryId, callId } = call.env || {};
+            if (!recorder || !sharedModelModifications || !historyEntryId || !callId) {
+                throw new Error(`The call.env is corrupted: ${ JSON.stringify(call.env)}`);
             }
             call.env = undefined;
             recorder.stop();
 
             if (error === undefined) {
-                recordAction(call, historyEntryId, recorder, sharedModelModifications);
+                // TODO: we are going to make this async because it needs to
+                // wait for the container to respond, to the start call before
+                // finishing the action.  But we should check that this delayed
+                // function doesn't access something from the tree that might
+                // have changed in the meantime.
+                recordAction(call, historyEntryId, callId, recorder, sharedModelModifications);
             } else {
                 // TODO: This is kind of a new feature that is being added to the tree by the undo manager
                 // any errors that happen during an action will cause the tree to revert back to 
@@ -155,7 +165,7 @@ export const addTreeMonitor = (tree: Instance<typeof Tree>, container: Container
     // ge a good thing to do.
     addDisposer(tree, middlewareDisposer);
 
-    const recordAction = (call: IActionTrackingMiddleware2Call<CallEnv>, historyEntryId: string, 
+    const recordAction = async (call: IActionTrackingMiddleware2Call<CallEnv>, historyEntryId: string, callId: string,
         recorder: IPatchRecorder, sharedModelModifications: SharedModelModifications) => {    
         if (!isActionFromContainer(call)) {
             // We record the start of the action even if it doesn't have any
@@ -165,32 +175,36 @@ export const addTreeMonitor = (tree: Instance<typeof Tree>, container: Container
             // We only record this when the action is triggered by the
             // container. If the container triggered the action then it is up to
             // the container to setup this information first.
-            container.addHistoryEntry(historyEntryId, tree.id, call.name, true);
+            await container.addHistoryEntry(historyEntryId, callId, tree.id, call.name, true);
         }
     
-        // Only send the changes to the container if there are some
-        if (recorder.patches.length > 0) {
-            const record: TreePatchRecordSnapshot = {
-                tree: tree.id,
-                action: call.name,
-                patches: recorder.patches,
-                inversePatches: recorder.inversePatches,
-            };
-            container.addTreePatchRecord(historyEntryId, record);
-        }
-
         // Call the shared model notification function if there are changes. 
         // This is needed so the changes can be sent to the container,
         // and so the changes can trigger a update/sync of the tile model
         // Previously this internal updating or sync'ing was done using an autorun to monitor the models. 
         // But that doesn't have access to the action id that triggered the sync, and that action id is
-        // needed so we can group the changes together so we can undo them later.
-        Object.entries(sharedModelModifications).forEach(([path, numModifications]) => {
+        // needed so we can group the changes together so we can undo them
+        // later.
+        for (const [path, numModifications] of Object.entries(sharedModelModifications)) {
             if (numModifications > 0) {
                 // Run the callback tracking changes to the shared model
-                sharedModelsConfig[path](historyEntryId, call);
+                // We need to wait for these complete because the container
+                // needs to know when this history entry is complete. If it gets
+                // the addTreePatchRecord before any changes from the shared
+                // models it will mark the entry complete too soon.
+                await sharedModelsConfig[path](historyEntryId, callId, call);
             }
-        });
+        }
+
+        // Always send the record to the container even if there are no
+        // patches. This API is how the container knows the callId is finished. 
+        const record: TreePatchRecordSnapshot = {
+            tree: tree.id,
+            action: call.name,
+            patches: recorder.patches,
+            inversePatches: recorder.inversePatches,
+        };
+        container.addTreePatchRecord(historyEntryId, callId, record);
     };
 
     return {
@@ -214,6 +228,10 @@ export const addTreeMonitor = (tree: Instance<typeof Tree>, container: Container
 
 function isActionFromContainer(call: IActionTrackingMiddleware2Call<CallEnv>) {
     return call.name === "applySharedModelSnapshotFromContainer" ||
+        // updateTreeAfterSharedModelChangesInternal is not always an action
+        // from the container. It can happen when a tree modifies it local
+        // shared model view and that triggers an update of the rest of the
+        // state of the tree.
         call.name === "updateTreeAfterSharedModelChangesInternal" ||
         call.name === "applyContainerPatches" ||
         call.name === "startApplyingContainerPatches" ||

@@ -10,6 +10,16 @@ interface Environment {
     getTreeFromId: (treeId: string) => TreeAPI | undefined;
 }
 
+/**
+ * Helper method to print objects in template strings
+ * In console statements they can be "printed", just by adding them as extra
+ * parameters.  But in error messages it is useful to do the same thing.
+ * 
+ * @param value any object
+ * @returns 
+ */
+const json = (value: any) => JSON.stringify(value);
+
 export const CDocument = types
     .model("CDocument", {
         // TODO: switch to a map, so we get faster lookups in the map and MST can
@@ -32,11 +42,59 @@ export const DocumentStore = types
     .views((self) => ({
         findHistoryEntry(historyEntryId: string) {
             return self.document.history.find(entry => entry.id === historyEntryId);
+        },
+    }))
+    .views((self) => ({
+        startHistoryEntryCall(historyEntryId: string, callId: string) {
+            // Find if there is already an entry with this historyEntryId
+            const entry = self.findHistoryEntry(historyEntryId);
+            if (!entry) {
+                throw new Error(`History Entry doesn't exist ${ json({historyEntryId})} `);
+            }
+
+            // Make sure this entry wasn't marked complete before
+            if (entry.state === "complete") {
+                throw new Error(`The entry was already marked complete ${ json({historyEntryId, callId})}`);
+            }            
+            
+            // start a new open call with this callId
+            // Check if there is a open call already with this id:
+            const openCallValue = entry.openCalls.get(callId);
+            if (openCallValue) {
+                throw new Error("trying to create or update a history entry that has an existing open call");
+            }
+            entry.openCalls.set(callId, 1);
         }
     }))
     .actions((self) => {
 
-        const createOrUpdateHistoryEntry = (historyEntryId: string, name: string, treeId: string, undoable: boolean) => {
+        const closeHistoryEntryCall = (entry: Instance<typeof HistoryEntry>, callId: string) => {
+            const openCallValue = entry.openCalls.get(callId);
+            if (!openCallValue) {
+                throw new Error(`The open call, doesn't exist for ${ json({historyEntryId: entry.id, callId}) }`);
+            }
+
+            entry.openCalls.delete(callId);    
+            
+            // TODO: We could use autorun for watching this observable map instead of
+            // changing the entry state here. 
+            if (entry.openCalls.size === 0) {
+                entry.state = "complete";
+            }
+        };
+
+        // FIXME: I was thinking of just using the historyEntryId as a call id,
+        // to tie together different calls during a user action or in response
+        // to a applySharedModelSnapshotFromContainer call.
+        // But if we need this method to also handle updating, then we need to
+        // add a special callId to track this instead. And we need the history
+        // entry to keep track of these calls. 
+        // When all calls are closed then we mark the history entry as
+        // completed.
+        //
+        // FIXME: The calls to this are now synchronized, so we probably don't
+        // need to support the "update history entry", part of this.
+        const createOrUpdateHistoryEntry = (historyEntryId: string, callId: string, name: string, treeId: string, undoable: boolean) => {
             let entry = self.findHistoryEntry(historyEntryId);
             if (!entry) {
                 entry = HistoryEntry.create({id: historyEntryId});
@@ -47,18 +105,59 @@ export const DocumentStore = types
             entry.tree = treeId;
             entry.undoable = undoable;
 
+            // Make sure this entry wasn't marked complete before
+            if (entry.state === "complete") {
+                throw new Error(`The entry was already marked complete ${ json({historyEntryId, callId})}`);
+            }
+            
+            // start a new open call with this callId
+            // Check if there is a open call already with this id:
+            const openCallValue = entry.openCalls.get(callId);
+            if (openCallValue) {
+                throw new Error("trying to create or update a history entry that has an existing open call");
+            }
+            entry.openCalls.set(callId, 1);
+
             // Only add it to the undo stack if it has changes. This means
             // it must have existed before.
+            // FIXME: now that is a synchronized, we can probably remove this
+            // code from here since we are trying to guarantee that create is
+            // called first and then addPatches will be called after.
             if (undoable && entry.records.length > 0) {
                 self.undoStore.addHistoryEntry(entry);
             }
 
+            return entry;
         };
 
-        const addPatchesToHistoryEntry = (historyEntryId: string, treePatchRecord: Instance<typeof TreePatchRecord>) => {
+        const startHistoryEntryCall = (historyEntryId: string, callId: string) => {
+            // Find if there is already an entry with this historyEntryId
+            const entry = self.findHistoryEntry(historyEntryId);
+            if (!entry) {
+                throw new Error(`History Entry doesn't exist ${ json({historyEntryId})} `);
+            }
+
+            // Make sure this entry wasn't marked complete before
+            if (entry.state === "complete") {
+                throw new Error(`The entry was already marked complete ${ json({historyEntryId, callId})}`);
+            }            
+            
+            // start a new open call with this callId
+            // Check if there is a open call already with this id:
+            const openCallValue = entry.openCalls.get(callId);
+            if (openCallValue) {
+                throw new Error("trying to create or update a history entry that has an existing open call");
+            }
+            entry.openCalls.set(callId, 1);
+        };
+
+        const addPatchesToHistoryEntry = (historyEntryId: string, callId: string, treePatchRecord: Instance<typeof TreePatchRecord>) => {
             // Find if there is already an entry with this historyEntryId
             let entry = self.findHistoryEntry(historyEntryId);
             if (!entry) {
+                // FIXME: now that is synchronous, there shouldn't be the case
+                // where the entry doesn't exist yet.
+                //
                 // This is a new user action, normally
                 // createOrUpdateHistoryEntry would have been called first
                 // but it is better to handle the out of order case here so
@@ -67,12 +166,31 @@ export const DocumentStore = types
                 self.document.history.push(entry);
             }
 
-            entry.records.push(treePatchRecord);
+            // Make sure this entry wasn't marked complete before
+            if (entry.state === "complete") {
+                throw new Error(`The entry was already marked complete ${ json({historyEntryId, callId})}`);
+            }
+
+            // The tree patch record will be sent even if there all no patches.
+            // This is how the tree tells the container that this callId is closed.
+            if (treePatchRecord.patches.length > 0) {
+                entry.records.push(treePatchRecord);
+            }
+
+            closeHistoryEntryCall(entry, callId);
 
             // Add the entry to the undo stack if it is undoable. The entry is
             // shared with the document store, so when new records are added
             // they are added to the undo stack too.
-            if (entry.undoable) {
+            //
+            // TODO: should we wait to add it until the full entry is complete?
+            // It might be better to add it earlier so it has the right position
+            // in the undo stack. For example if a user action caused some async
+            // behavior that takes a while, should its place in the stack be at
+            // the beginning or end of these changes?
+            //
+            // TODO: should we add it even if there are no patches?
+            if (entry.undoable && treePatchRecord.patches.length > 0) {
                 self.undoStore.addHistoryEntry(entry);
             }
         };
@@ -84,19 +202,26 @@ export const DocumentStore = types
             const trees = Object.values(treeMap);
 
             const historyEntryId = uuidv4();
+
+            const topLevelCallId = uuidv4();
+
             // Start a non-undoable action with this id. Currently the trees do
             // not have their treeMonitors setup when replayHistoryToTrees is
             // called, so the container should not receive any patches with this
             // historyEntryId. However, it seems good to go ahead and record
             // this anyway.
-            createOrUpdateHistoryEntry(historyEntryId, "replayHistoryToTrees", "container", false);
+            const historyEntry = 
+              createOrUpdateHistoryEntry(historyEntryId, topLevelCallId, "replayHistoryToTrees", "container", false);
 
             // Disable shared model syncing on all of the trees. This is
             // different than when the undo store applies patches because in
             // this case we are going to apply lots of history entries all at
             // once. 
             const startPromises = trees.map(tree => {
-                return tree.startApplyingContainerPatches(historyEntryId);
+                const startCallId = uuidv4();
+                self.startHistoryEntryCall(historyEntryId, startCallId);
+
+                return tree.startApplyingContainerPatches(historyEntryId, startCallId);
             });
             yield Promise.all(startPromises);
 
@@ -129,13 +254,14 @@ export const DocumentStore = types
 
             const applyPromises = Object.entries(treePatches).map(([treeId, patches]) => {
                 if (patches && patches.length > 0) {
+                    const callId = uuidv4();
+                    self.startHistoryEntryCall(historyEntryId, callId);
                     const tree = getTreeFromId(treeId);
-                    return tree?.applyContainerPatches(historyEntryId, patches);
+                    return tree?.applyContainerPatches(historyEntryId, callId, patches);
                 } 
             });
             yield Promise.all(applyPromises);
   
-
             // finish the patch application
             // Need to tell all of the tiles to re-enable the sync and run the sync
             // to resync their tile models with any changes applied to the shared models
@@ -143,18 +269,31 @@ export const DocumentStore = types
             // This can be used in the future to make sure multiple applyPatchesToTrees are not 
             // running at the same time.
             const finishPromises = trees.map(tree => {
-                return tree.finishApplyingContainerPatches(historyEntryId);
+                const finishCallId = uuidv4();
+                self.startHistoryEntryCall(historyEntryId, finishCallId);
+
+                return tree.finishApplyingContainerPatches(historyEntryId, finishCallId);
             });
             // I'm using a yield because it isn't clear from the docs if an flow MST action
             // can return a promise or not.
             yield Promise.all(finishPromises);
+
+            // TODO: we are closing this top level call after the finish
+            // applying container patches is called. This way if some of those
+            // finish calls result in additional changes to the tree those
+            // changes should delay the completion of this history event. It
+            // isn't clear if that is really necessary in this case.
+            closeHistoryEntryCall(historyEntry, topLevelCallId);
         });
+
 
 
         return {
             replayHistoryToTrees,
             createOrUpdateHistoryEntry,
-            addPatchesToHistoryEntry
+            addPatchesToHistoryEntry,
+            startHistoryEntryCall,
+            closeHistoryEntryCall
         };
       
     });
